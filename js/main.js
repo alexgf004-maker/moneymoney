@@ -9,8 +9,8 @@ import { iniciarFirebase, entrarConGoogle, salir } from './firebase.js';
 import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
 import { recurrentesPendientes } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
-import { estadoTarjeta, movimientoDeAjuste } from './domain/tarjetas.js';
-import { leerMonto } from './domain/dinero.js';
+import { estadoTarjeta, movimientoDeAjuste, ultimoCorte } from './domain/tarjetas.js';
+import { leerMonto, r2 } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { nombreCuenta, estadosDe, estadoDe } from './consultas.js';
 import { datosEjemplo } from './demo.js';
@@ -95,6 +95,18 @@ const ACCIONES = {
     aviso(`Ajustado: se agregó un ${c.diferencia > 0 ? 'cargo' : 'crédito'} de $${Math.abs(c.diferencia).toFixed(2)}`);
   },
   'anotar-revision': d => abrir('movimiento', { revision: d.id }),
+  'borrar-plan': d => {
+    const t = store.obtener('tarjetas', d.tarjeta);
+    if (!t || !confirm('¿Borrar esta compra en cuotas?')) return;
+    const planes = { ...(t.planes || {}) };
+    delete planes[d.id];
+    store.guardar('tarjetas', { ...t, planes });
+    // Si venía de una compra anotada, esa compra vuelve a contar completa en la tarjeta
+    const compras = store.lista('movimientos').filter(m => m.plan === d.id).map(m => ({ ...m, plan: null }));
+    if (compras.length) store.guardarVarios('movimientos', compras);
+    cerrar();
+    aviso('Borrado');
+  },
   'filtro-revision': d => { ui.filtroRevision = d.valor; renderVista(); },
   mes: d => { if (ui.filtro === 'revisar') ui.filtro = 'todos'; moverMes(Number(d.dir)); renderVista(); },
   filtro: d => { ui.filtro = d.valor; renderVista(); },
@@ -217,6 +229,16 @@ const FORMULARIOS = {
       mov = { ...base, cuentaId: f.cuentaIngreso, categoriaId: f.categoriaIngreso || 'salario', comercio: f.comercio || 'Ingreso', desdeId: null, extra: false };
     } else {
       mov = { ...base, cuentaId: f.cuentaGasto, categoriaId: f.categoriaId || 'otros', comercio: f.comercio || '', desdeId: null, extra: false };
+      // Compra a tasa cero: la tarjeta no carga el monto completo, sino una cuota en cada corte
+      const t = store.obtener('tarjetas', f.cuentaGasto);
+      if (tipo === 'gasto' && f.tasaCero && !previo?.plan) {
+        if (!t) return 'Las compras en cuotas son con tarjeta de crédito: elige la tarjeta en "Pagado con"';
+        const meses = entero(f.meses) || 6;
+        const planId = store.nuevoId('q');
+        const plan = { id: planId, nombre: mov.comercio || 'Compra en cuotas', tipo: 'tasa0', cuota: r2(monto / meses), total: meses, cobradas: 0, corteRef: ultimoCorte(t, mov.fecha) };
+        store.guardar('tarjetas', { ...t, planes: { ...(t.planes || {}), [planId]: plan } });
+        mov.plan = planId;
+      }
     }
     store.guardar('movimientos', mov);
     if (f.crearRegla && f.patron && tipo !== 'pago') {
@@ -225,6 +247,20 @@ const FORMULARIOS = {
       const n = aplicarRegla(regla);
       return { ok: `Guardado. Regla creada${n ? ` y aplicada a ${n} movimiento${n > 1 ? 's' : ''} más` : ''}.` };
     }
+  },
+
+  plan(f, form) {
+    const t = store.obtener('tarjetas', form.dataset.tarjeta);
+    if (!t) return 'No encontré la tarjeta';
+    const cuota = num(f.cuota), total = entero(f.total), cobradas = entero(f.cobradas) ?? 0;
+    if (!(cuota > 0) || !(total > 0)) return 'Escribe la cuota y el total de cuotas';
+    if (cobradas < 0 || cobradas > total) return 'Las cuotas cobradas deben estar entre 0 y el total';
+    const id = form.dataset.id || store.nuevoId('q');
+    // Se cuenta desde el último corte: las cuotas cobradas incluyen la de ese estado de cuenta
+    const plan = { id, nombre: f.nombre.trim(), tipo: f.tipo || 'tasa0', cuota, total, cobradas, corteRef: estadoDe(t).ultimoCorte, tasaAnual: num(f.tasaAnual) };
+    const cambios = { planes: { ...(t.planes || {}), [id]: plan } };
+    if (!form.dataset.id && f.incluido) cambios.saldoInicial = r2((t.saldoInicial || 0) - cuota * (total - cobradas));
+    store.guardar('tarjetas', { ...t, ...cambios });
   },
 
   tarjeta(f, form) {

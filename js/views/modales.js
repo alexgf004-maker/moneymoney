@@ -9,7 +9,7 @@ import { hoyISO, fechaCorta } from '../domain/fechas.js';
 // Ventana con forma de hoja que sube desde abajo
 export function vistaModal() {
   const m = ui.modal;
-  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla }[m.tipo];
+  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla, plan }[m.tipo];
   if (!fn) return '';
   const { titulo, cuerpo } = fn(m);
   return `<div class="hoja-fondo" data-accion="cerrar-fondo">
@@ -42,6 +42,10 @@ function movimiento({ id, mov: tipoInicial, revision }) {
     <div class="solo-gasto solo-reembolso">${campo('Categoría', opciones('categoriaId', cats(CATEGORIAS), m?.categoriaId || 'super'))}</div>
     <div class="solo-ingreso">${campo('Tipo de ingreso', opciones('categoriaIngreso', cats(INGRESOS), m?.categoriaId || 'salario'))}</div>
     <div class="solo-gasto solo-reembolso">${campo('Pagado con', selector('cuentaGasto', opcionesPagoCon(), cuentaGasto))}</div>
+    <div class="solo-gasto">${m?.plan
+      ? `<small class="mu">${ic('calendario')} Compra en cuotas: la tarjeta cobra la cuota en cada corte. Se edita en Deudas, en la tarjeta.</small>`
+      : `${marca('tasaCero', 'Compra en cuotas (tasa cero) con tarjeta de crédito')}
+        <div class="fila-campos">${campo('Número de cuotas', selector('meses', [3, 6, 9, 10, 12, 18, 24, 36].map(n => [n, `${n} meses`]), 6))}<span></span></div>`}</div>
     <div class="solo-ingreso">${campo('Entró a', selector('cuentaIngreso', opcionesCuentas(), m?.tipo === 'ingreso' ? m.cuentaId : 'efectivo'))}</div>
     <div class="solo-pago">
       ${deudas.length ? campo('Deuda que pagaste', selector('deuda', deudas, m?.tipo === 'pago' ? m.cuentaId : deudas[0][0])) : '<p class="mu">Primero agrega una tarjeta o un préstamo.</p>'}
@@ -57,6 +61,29 @@ function movimiento({ id, mov: tipoInicial, revision }) {
     ${pie(botonBorrar('movimientos', id), m?.revisar ? 'Confirmar' : 'Guardar')}
   </form>`;
   return { titulo: id ? 'Movimiento' : 'Anotar', cuerpo };
+}
+
+// Compra en cuotas de una tarjeta (tasa cero o extrafinanciamiento). pre: id de la tarjeta
+function plan({ id, pre }) {
+  const t = obtener('tarjetas', pre);
+  const p = id ? t?.planes?.[id] : null;
+  const e = p ? estadoDe(t).planes.find(x => x.id === id) : null;
+  const tipo = p?.tipo || 'tasa0';
+  const cuerpo = `<form data-form="plan" data-id="${id || ''}" data-tarjeta="${esc(pre)}" data-tipo="${tipo}">
+    <p class="mu" style="margin:0 0 6px">${esc(t?.nombre || '')} ···${esc(t?.ultimos4 || '')}</p>
+    ${opciones('tipo', [['tasa0', 'Tasa cero', 'calendario'], ['extra', 'Extrafinanciamiento', 'banco']], tipo, 'dos-op')}
+    ${campo('Qué compraste o para qué fue', entrada('nombre', p?.nombre || '', { req: true, ph: 'Ej. Cocina, Extrafinanciamiento' }))}
+    <div class="fila-campos">
+      ${campo('Cuota mensual', entrada('cuota', p ? p.cuota.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, req: true, ph: '0.00' }))}
+      ${campo('Total de cuotas', entrada('total', p?.total ?? '', { tipo: 'number', min: 1, req: true, ph: 'Ej. 12' }))}
+    </div>
+    ${campo('¿Cuántas cuotas ya te cobraron?', entrada('cobradas', e ? e.cobradasHoy : '', { tipo: 'number', min: 0, req: true, ph: 'Ej. 11' }), 'Contando la de tu último estado de cuenta. Si vas por la 11 de 12, pon 11.')}
+    <div class="solo-extra">${campo('Tasa de interés anual % (opcional)', entrada('tasaAnual', p?.tasaAnual ?? '', { tipo: 'number', paso: '0.01', min: 0 }), 'Solo informativa: la cuota ya incluye el interés')}</div>
+    ${p ? '' : `${marca('incluido', 'El saldo que puse en esta tarjeta ya incluye lo que falta de esta compra')}
+      <small class="mu">Casi siempre NO: los bancos muestran el saldo y las cuotas por separado. Si al configurar la tarjeta calculaste el límite como saldo + disponible, súbele lo que falta de esta compra.</small>`}
+    ${pie(id ? `<button type="button" class="btn peligro" data-accion="borrar-plan" data-tarjeta="${esc(pre)}" data-id="${esc(id)}" aria-label="Borrar">${ic('borrar')}</button>` : '')}
+  </form>`;
+  return { titulo: p ? 'Compra en cuotas' : 'Nueva compra en cuotas', cuerpo };
 }
 
 // pre: clave de una tarjeta detectada en los correos ("banco|1234"), para llenar el formulario

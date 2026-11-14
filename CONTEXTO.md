@@ -90,6 +90,15 @@ tests/              *.test.js con node --test (reglas y lector) · app.spec.js c
   `aj_{tarjeta}_{corte}` (cargo o crédito en "Intereses y cargos") que deja ambos iguales.
 - El script corta a los 4.5 minutos y guarda lo avanzado (Google corta a los 6).
 
+## Compras en cuotas (tasa cero y extrafinanciamiento)
+- Viven dentro de la tarjeta: `tarjetas/{id}/planes/{planId}` = { nombre, tipo: tasa0|extra, cuota, total, cobradas, corteRef, tasaAnual }.
+- `cobradas` = cuotas ya incluidas en estados de cuenta hasta `corteRef`. En cada corte siguiente la tarjeta suma un cargo
+  `tipo: 'cuota'` (virtual, `cargosDePlanes`) hasta completar `total`. Lo que falta va aparte ("en cuotas"): no entra al pago
+  de contado, pero sí a la deuda total y al uso del límite.
+- Una compra anotada como "tasa cero" crea su plan y queda con `plan: id`: no se suma completa a la tarjeta, pero cuenta
+  completa como gasto del mes en que se hizo.
+- En el plan de deudas cada compra en cuotas es un pago fijo sin intereses (en el extrafinanciamiento la cuota ya los trae).
+
 ## Pagos entre tarjetas
 Un pago con `desdeId` = otra tarjeta (p. ej. pagar la Siman desde la Cuscatlán con "Pago de servicio") baja la deuda de
 `cuentaId` y sube la de `desdeId`. No cuenta como gasto. Los movimientos repetidos (misma tarjeta, tipo y monto con un

@@ -83,7 +83,7 @@ test('pestañas de deudas y simulador del préstamo', async ({ page }) => {
 test('agregar una tarjeta nueva', async ({ page }) => {
   await conEjemplo(page);
   await nav(page, 'Deudas');
-  await page.getByRole('button', { name: 'Agregar' }).click();
+  await page.getByRole('button', { name: 'Agregar', exact: true }).click();
   const f = page.locator('form[data-form=tarjeta]');
   await f.locator('[name=banco]').selectOption('credicomer');
   await f.locator('[name=nombre]').fill('Credicomer Visa');
@@ -175,5 +175,37 @@ test('correos revisados y comparación con el estado de cuenta', async ({ page }
   await expect(page.locator('#vista')).toContainText('1 por revisar');
   await page.getByRole('button', { name: /Notificación de cargo/ }).click();
   await expect(page.locator('form[data-form=movimiento] [name=monto]')).toHaveValue('12.25');
+  expect(errores).toEqual([]);
+});
+
+test('compras en cuotas: extrafinanciamiento y compra nueva a tasa cero', async ({ page }) => {
+  const errores = await conEjemplo(page);
+  await nav(page, 'Deudas');
+  const visa = page.locator('.tc', { hasText: 'Visa Agrícola' });
+  const antes = await visa.locator('.cifra').innerText();
+  // Extrafinanciamiento: 11 de 12 cuotas de $50 -> falta 1
+  await visa.getByRole('button', { name: 'Agregar compra en cuotas' }).click();
+  const f = page.locator('form[data-form=plan]');
+  await f.locator('label:has(input[value=extra])').click();
+  await f.locator('[name=nombre]').fill('Extrafinanciamiento');
+  await f.locator('[name=cuota]').fill('50');
+  await f.locator('[name=total]').fill('12');
+  await f.locator('[name=cobradas]').fill('11');
+  await f.getByRole('button', { name: 'Guardar' }).click();
+  await expect(visa).toContainText('+ $50.00 en cuotas');
+  await expect(visa).toContainText('cuota 11 de 12');
+  expect(await visa.locator('.cifra').innerText()).not.toBe(antes);
+  // Compra nueva a tasa cero: $600 en 6 meses
+  await page.locator('.fab').click();
+  const m = page.locator('form[data-form=movimiento]');
+  await m.locator('[name=monto]').fill('600');
+  await m.locator('[name=comercio]').fill('Cocina');
+  await m.locator('[name=cuentaGasto]').selectOption({ label: 'Tarjeta Visa Agrícola ···4821' });
+  await m.locator('[name=tasaCero]').check();
+  await m.locator('[name=meses]').selectOption('6');
+  await m.getByRole('button', { name: 'Guardar' }).click();
+  await expect(visa).toContainText('Cocina');
+  await expect(visa).toContainText('cuota 0 de 6');
+  await expect(visa).toContainText('+ $650.00 en cuotas');
   expect(errores).toEqual([]);
 });

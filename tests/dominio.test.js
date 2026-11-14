@@ -215,3 +215,36 @@ test('al corte, la app compara con el banco y puede ajustar la diferencia', asyn
   assert.equal(despues.conciliacion.diferencia, 0);
   assert.equal(aj.categoriaId, 'comisiones');
 });
+
+test('compras en cuotas: solo la cuota del mes entra al pago de contado', () => {
+  // Cocina a tasa cero: 6 cuotas de $100, ya van 4 (la 4ta en el corte del 5 nov). Extrafinanciamiento: 11 de 12, $50
+  const t = {
+    ...tarjeta, diaCorte: 5, diaPago: 25, saldoInicial: 300, fechaSaldo: '2026-11-10', saldoCorteInicial: 250, pagadoCorteInicial: 0,
+    planes: {
+      p1: { id: 'p1', nombre: 'Cocina', tipo: 'tasa0', cuota: 100, total: 6, cobradas: 4, corteRef: '2026-11-05' },
+      p2: { id: 'p2', nombre: 'Extrafinanciamiento', tipo: 'extra', cuota: 50, total: 12, cobradas: 11, corteRef: '2026-11-05' },
+    },
+  };
+  const hoy = estadoTarjeta(t, [], '2026-11-14');
+  assert.equal(hoy.saldoActual, 300);
+  assert.equal(hoy.enCuotas, 250); // 2 x 100 + 1 x 50
+  assert.equal(hoy.deudaTotal, 550);
+  assert.equal(hoy.cuotasMes, 150);
+  assert.equal(hoy.contadoPendiente, 250);
+  // Al corte del 5 dic se cobran la 5ta de la cocina y la última del extrafinanciamiento: 300 + 150
+  const dic = estadoTarjeta(t, [{ cuentaId: 't1', tipo: 'pago', monto: 300, fecha: '2026-11-20' }], '2026-12-06');
+  assert.equal(dic.saldoCorte, 150);
+  assert.equal(dic.enCuotas, 100);
+  const extra = dic.planes.find(p => p.id === 'p2');
+  assert.equal(extra.activo, false);
+  assert.equal(extra.fin, '2026-12-05');
+});
+
+test('una compra marcada en cuotas no se suma completa a la tarjeta', () => {
+  const t = { ...tarjeta, saldoInicial: 0, fechaSaldo: '2026-11-01', planes: { p: { id: 'p', nombre: 'TV', tipo: 'tasa0', cuota: 50, total: 12, cobradas: 0, corteRef: '2026-11-05' } } };
+  const compra = { cuentaId: 't1', tipo: 'gasto', monto: 600, fecha: '2026-11-08', plan: 'p' };
+  const e = estadoTarjeta(t, [compra], '2026-11-14');
+  assert.equal(e.saldoActual, 0);
+  assert.equal(e.enCuotas, 600);
+  assert.equal(totalGastado([compra], '2026-11'), 600); // el gasto cuenta completo el mes de la compra
+});

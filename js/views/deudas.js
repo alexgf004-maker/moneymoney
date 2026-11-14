@@ -59,7 +59,8 @@ function tarjetasHTML(d, hoy) {
         <div class="tc-n"><span class="glifo g-${esc(t.banco || 'otro')}">${ic('tarjeta')}</span><div><b>${esc(t.nombre)}</b><small>···${esc(t.ultimos4)} · ${esc(nombreBanco(t.banco))}</small></div></div>
         <button class="ib chico" data-accion="modal" data-tipo="tarjeta" data-id="${t.id}" aria-label="Editar tarjeta">${ic('editar')}</button>
       </div>
-      <div class="cifra">${dinero(e.saldoActual)}</div>
+      <div class="cifra">${dinero(e.deudaTotal)}</div>
+      ${e.enCuotas ? `<small class="mu">Saldo ${dinero(e.saldoActual)} + ${dinero(e.enCuotas)} en cuotas</small>` : ''}
       ${lin(e.uso, e.uso >= 0.9 ? 'bad' : e.uso >= 0.5 ? 'warn' : '')}
       <small class="mu">${(e.uso * 100).toFixed(0)}% de ${dinero(t.limite)} usado · disponible ${dinero(e.disponible)}</small>
       <div class="caja">
@@ -71,6 +72,7 @@ function tarjetasHTML(d, hoy) {
       </div>
       ${e.fuente === 'banco' ? `<small class="mu" style="margin-top:10px">${ic('check')} Según tu estado de cuenta del ${fechaCorta(e.ultimoCorte)}</small>` : ''}
       ${conciliacionHTML(t, e.conciliacion)}
+      ${planesHTML(t, e)}
       <small class="mu" style="margin-top:${e.fuente === 'banco' ? 4 : 10}px">Próximo corte ${fechaCorta(e.proximoCorte)} · compras desde el corte ${dinero(e.comprasCiclo)}</small>
       <div class="tc-acc">
         <button class="btn sm" data-accion="pagar" data-id="${t.id}">${ic('pago')} Registrar pago</button>
@@ -78,6 +80,20 @@ function tarjetasHTML(d, hoy) {
       </div>
     </article>`;
   }).join('');
+}
+
+// Compras en cuotas de la tarjeta (tasa cero y extrafinanciamientos)
+function planesHTML(t, e) {
+  const activos = e.planes.filter(p => p.activo);
+  const fila = p => `<button class="row" data-accion="modal" data-tipo="plan" data-id="${esc(p.id)}" data-pre="${t.id}" style="padding:10px 0">
+      <span class="rt"><b>${esc(p.nombre)}</b><small>${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · cuota ${p.cobradasHoy} de ${p.total}${p.activo ? ` · termina en ${nombreMes(p.fin.slice(0, 7))}` : ' · terminado'}</small></span>
+      <span class="amt">${dinero(p.cuota)}<small>al mes</small></span>
+    </button>`;
+  return `<div class="caja">
+    <div class="caja-fila"><b style="font-size:13.5px">Compras en cuotas</b>${activos.length ? `<span class="mu">${dinero(e.cuotasMes)} al mes</span>` : ''}</div>
+    ${e.planes.length ? e.planes.map(fila).join('') : '<div class="nota">Tasa cero o extrafinanciamiento: agrégalas para que el pago de contado salga como el del banco.</div>'}
+    <button class="link" data-accion="modal" data-tipo="plan" data-pre="${t.id}">${ic('plus')} Agregar compra en cuotas</button>
+  </div>`;
 }
 
 // Comparación con el estado de cuenta: ¿lo que registró la app al corte coincide con lo que dice el banco?

@@ -10,9 +10,44 @@
 // Movimientos que afectan la tarjeta:
 //   cuentaId = la tarjeta: gasto -> aumenta la deuda · pago y reembolso -> la bajan
 //   desdeId = la tarjeta en un pago: se pagó OTRA deuda con esta tarjeta (p. ej. la Siman con la Cuscatlán) -> aumenta la deuda
+//   plan = id de un plan de cuotas: la compra NO se suma completa; la tarjeta cobra la cuota en cada corte
+//
+// Compras en cuotas (tarjeta.planes): tasa cero y extrafinanciamientos.
+//   { id, nombre, tipo: 'tasa0'|'extra', cuota, total, cobradas, corteRef, tasaAnual }
+//   cobradas = cuotas ya incluidas en estados de cuenta hasta el corte corteRef. Cada corte siguiente cobra una
+//   cuota más (un cargo en la fecha de corte), hasta llegar a `total`. Lo que falta no es parte del pago de
+//   contado: se muestra aparte como "en cuotas", como lo hace el banco.
 
 import { deISO, fechaConDia, sumarMeses, diasEntre } from './fechas.js';
 import { r2, sumar } from './dinero.js';
+
+const planesDe = t => Object.values(t.planes || {});
+
+// Cargos de cuota que hace cada plan en los cortes siguientes a corteRef
+export function cargosDePlanes(tarjeta) {
+  const cargos = [];
+  for (const p of planesDe(tarjeta)) {
+    for (let i = (p.cobradas || 0) + 1, k = 1; i <= p.total; i++, k++) {
+      cargos.push({ id: `plan_${p.id}_${i}`, tipo: 'cuota', cuentaId: tarjeta.id, monto: r2(p.cuota), fecha: sumarMeses(p.corteRef, k, tarjeta.diaCorte), plan: p.id, n: i });
+    }
+  }
+  return cargos;
+}
+
+// Estado de cada plan a una fecha: cuántas cuotas van, cuánto falta y cuándo termina
+export function estadoPlanes(tarjeta, hoy) {
+  const cargos = cargosDePlanes(tarjeta);
+  return planesDe(tarjeta).map(p => {
+    const propios = cargos.filter(c => c.plan === p.id);
+    const cobradas = (p.cobradas || 0) + propios.filter(c => c.fecha <= hoy).length;
+    const restantes = Math.max(0, p.total - cobradas);
+    const proxima = propios.find(c => c.fecha > hoy);
+    return {
+      ...p, cobradasHoy: cobradas, restantes, pendiente: r2(restantes * p.cuota),
+      proximaCuota: proxima?.fecha || null, fin: propios.length ? propios[propios.length - 1].fecha : p.corteRef, activo: restantes > 0,
+    };
+  });
+}
 
 export function ultimoCorte(tarjeta, hoy) {
   const d = deISO(hoy);
@@ -29,11 +64,13 @@ export function fechaPagoDe(tarjeta, corte) {
   return mismoMes > corte ? mismoMes : fechaConDia(d.getFullYear(), d.getMonth() + 1, tarjeta.diaPago);
 }
 
-const esCargo = (m, id) => m.tipo === 'gasto' || (m.tipo === 'pago' && m.desdeId === id && m.cuentaId !== id);
+const esCargo = (m, id) => (m.tipo === 'gasto' && !m.plan) || m.tipo === 'cuota' || (m.tipo === 'pago' && m.desdeId === id && m.cuentaId !== id);
 
 const efecto = id => m => (esCargo(m, id) ? m.monto : m.tipo === 'pago' || m.tipo === 'reembolso' ? -m.monto : 0);
 
-const deLaTarjeta = (tarjeta, movs) => movs.filter(m => (m.cuentaId === tarjeta.id || (m.tipo === 'pago' && m.desdeId === tarjeta.id)) && m.fecha > tarjeta.fechaSaldo);
+// Movimientos de la tarjeta desde que se configuró, más las cuotas de sus compras en cuotas
+const deLaTarjeta = (tarjeta, movs) => [...movs, ...cargosDePlanes(tarjeta)]
+  .filter(m => (m.cuentaId === tarjeta.id || (m.tipo === 'pago' && m.desdeId === tarjeta.id)) && m.fecha > tarjeta.fechaSaldo);
 
 // Saldo al final del día `fecha` (solo para fechas desde que se configuró)
 export function saldoEn(tarjeta, movs, fecha) {
@@ -95,10 +132,18 @@ export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
   const tasaMensual = (tarjeta.tasaAnual || 0) / 12 / 100;
   const comprasCiclo = sumar(deLaTarjeta(tarjeta, movs).filter(m => esCargo(m, tarjeta.id) && m.fecha > corte && m.fecha <= hoy).map(m => m.monto));
   const vencido = hoy > fechaPago && contadoPendiente > 0;
+  const planes = estadoPlanes(tarjeta, hoy);
+  const enCuotas = sumar(planes.map(p => p.pendiente));
+  const deudaTotal = r2(saldoActual + enCuotas);
   return {
     saldoActual,
-    disponible: r2((tarjeta.limite || 0) - saldoActual),
-    uso: tarjeta.limite ? saldoActual / tarjeta.limite : 0,
+    planes,
+    enCuotas,
+    cuotasMes: sumar(planes.filter(p => p.activo).map(p => p.cuota)),
+    deudaTotal,
+    // Lo que falta en cuotas también ocupa el límite (el banco lo descuenta del disponible)
+    disponible: r2((tarjeta.limite || 0) - deudaTotal),
+    uso: tarjeta.limite ? deudaTotal / tarjeta.limite : 0,
     ultimoCorte: corte,
     proximoCorte: real ? sumarMeses(real.fechaCorte, 1, tarjeta.diaCorte) : proximoCorte(tarjeta, hoy),
     fuente: real ? 'banco' : 'calculado',

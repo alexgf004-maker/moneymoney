@@ -87,7 +87,8 @@ export function resumenDeudas(hoy = hoyISO()) {
   const m = movs();
   const ts = tarjetas().map(t => ({ t, e: estadoTarjeta(t, m, hoy, estadosDe(t)) }));
   const ps = prestamos().map(p => ({ p, e: estadoPrestamo(p, m, hoy) }));
-  const totalTarjetas = sumar(ts.map(x => x.e.saldoActual));
+  // Incluye lo que falta de las compras en cuotas: también es deuda
+  const totalTarjetas = sumar(ts.map(x => x.e.deudaTotal));
   const totalPrestamos = sumar(ps.map(x => x.e.saldo));
   return { ts, ps, totalTarjetas, totalPrestamos, total: r2(totalTarjetas + totalPrestamos) };
 }
@@ -100,6 +101,10 @@ export function deudasParaPlan(hoy = hoyISO()) {
       id: t.id, nombre: `${t.nombre} ···${t.ultimos4}`, saldo: e.saldoActual, tasaAnual: t.tasaAnual || 0,
       minimo: Math.max(r2(e.saldoActual * (t.minimoPct ?? 5) / 100), Math.min(10, e.saldoActual)),
     })),
+    // Cada compra en cuotas: pago fijo sin intereses (en el extrafinanciamiento la cuota ya trae su interés)
+    ...ts.flatMap(({ t, e }) => e.planes.filter(p => p.activo).map(p => ({
+      id: `${t.id}_${p.id}`, nombre: `${p.nombre} (cuotas ${t.nombre})`, saldo: p.pendiente, tasaAnual: 0, minimo: p.cuota,
+    }))),
     ...ps.filter(x => x.e.saldo > 0).map(({ p, e }) => ({
       id: p.id, nombre: p.nombre, saldo: e.saldo, tasaAnual: p.tasaAnual || 0, minimo: e.capitalEInteres,
     })),
