@@ -322,7 +322,8 @@ montar();
 procesos();
 render();
 
-if (FIREBASE) {
+// Las pruebas automáticas corren sin nube (window.__SIN_NUBE__)
+if (FIREBASE && !window.__SIN_NUBE__) {
   ui.nube = 'cargando';
   iniciarFirebase(FIREBASE, {
     alUsuario(usuario, escritor) {

@@ -4,6 +4,9 @@ import { test, expect } from '@playwright/test';
 // Emojis y símbolos que no deben aparecer en la interfaz (regla de los proyectos del usuario)
 const EMOJI = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{FF0B}]/u;
 
+// Sin nube en las pruebas (la app real se conecta a Firebase)
+test.beforeEach(async ({ page }) => { await page.addInitScript(() => { window.__SIN_NUBE__ = true; }); });
+
 async function conEjemplo(page) {
   const errores = [];
   page.on('pageerror', e => errores.push(e.message));

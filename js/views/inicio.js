@@ -20,7 +20,8 @@ export function vistaInicio() {
   const m = movs();
   const fecha = deISO(hoy);
   const encabezado = top({ eyebrow: `${DIAS[fecha.getDay()]}, ${fechaLarga(hoy).replace(/ de \d{4}$/, '')}`, titulo: ajustes().nombre ? `Hola, ${esc(ajustes().nombre)}` : 'Hola', der: botonesTop() });
-  if (!tarjetas().length && !prestamos().length && !m.length) return encabezado + bienvenida();
+  const entrar = ui.nube === 'sin-sesion' ? `<button class="aviso-fila" style="margin:0 0 14px" data-accion="entrar">${ic('nube')}<span class="rt"><b>Entra con tu cuenta de Google</b><small>Para guardar en la nube y recibir tus compras de Gmail</small></span><span class="mu">${ic('chevron-right')}</span></button>` : '';
+  if (!tarjetas().length && !prestamos().length && !m.length && !lista('estados').length) return encabezado + entrar + bienvenida();
 
   const mes = mesDe(hoy);
   const gastado = totalGastado(m, mes);
@@ -59,6 +60,7 @@ export function vistaInicio() {
       <button class="act" data-accion="ir" data-vista="deudas" data-tab="plan">${ic('escalera')}<div>Plan</div></button>
     </nav>
 
+    ${ui.nube === 'sin-sesion' ? `<button class="aviso-fila" data-accion="entrar">${ic('nube')}<span class="rt"><b>Entra con tu cuenta de Google</b><small>Para guardar en la nube y recibir tus compras de Gmail</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
     ${detectadas ? `<button class="aviso-fila" data-accion="ir" data-vista="deudas" data-tab="tarjetas">${ic('tarjeta')}<span class="rt"><b>Encontré ${detectadas} tarjeta${detectadas > 1 ? 's' : ''} en tus correos</b><small>Agrégala${detectadas > 1 ? 's' : ''} con un toque</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
     ${porRevisar ? `<button class="aviso-fila" data-accion="ver-revisar">${ic('revisar')}<span class="rt"><b>${porRevisar} movimiento${porRevisar > 1 ? 's' : ''} por revisar</b><small>Confirma la tarjeta o la categoría</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
     ${noLeidos ? `<button class="aviso-fila" data-accion="ir" data-vista="mas" data-sub="noleidos">${ic('correo')}<span class="rt"><b>${noLeidos} correo${noLeidos > 1 ? 's' : ''} del banco sin leer</b><small>No parecen compras o el formato es nuevo</small></span></button>` : ''}
