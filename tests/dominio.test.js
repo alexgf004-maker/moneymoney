@@ -196,3 +196,8 @@ test('el mismo movimiento en dos correos no se repite', async () => {
   assert.equal(esDuplicado({ ...a, id: 'gm_2', fecha: '2026-11-06' }, [a]), true);
   assert.equal(esDuplicado({ ...a, id: 'gm_2', monto: 11 }, [a]), false);
 });
+
+test('seguros que cobra el banco a la tarjeta van a intereses y cargos', () => {
+  assert.equal(categorizar('MEDICARE BAC -C').categoriaId, 'comisiones');
+  assert.equal(categorizar('ACCIDENTES PERSONALES').categoriaId, 'comisiones');
+});

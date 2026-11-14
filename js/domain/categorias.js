@@ -45,7 +45,7 @@ export const REGLAS_BASE = [
   ['CURACAO', 'hogar'], ['TROPIGAS', 'hogar'], ['VIDRI', 'hogar'], ['FREUND', 'hogar'], ['EPA', 'hogar'], ['OMNISPORT', 'compras'],
   ['CINEMARK', 'entretenimiento'], ['CINEPOLIS', 'entretenimiento'], ['STEAM', 'entretenimiento'], ['PLAYSTATION', 'entretenimiento'],
   ['CAJERO', 'efectivo'], ['ATM', 'efectivo'], ['RETIRO', 'efectivo'],
-  ['INTERES', 'comisiones'], ['COMISION', 'comisiones'], ['MEMBRESIA', 'comisiones'], ['CARGO POR', 'comisiones'], ['SEGURO', 'comisiones'],
+  ['MEDICARE', 'comisiones'], ['ACCIDENTES PERSONALES', 'comisiones'], ['ASISTENCIA', 'comisiones'], ['INTERES', 'comisiones'], ['COMISION', 'comisiones'], ['MEMBRESIA', 'comisiones'], ['CARGO POR', 'comisiones'], ['SEGURO', 'comisiones'],
 ];
 
 export function normalizar(texto) {
