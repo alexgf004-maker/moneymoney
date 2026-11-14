@@ -141,6 +141,9 @@ function tipoDe(texto) {
   return 'gasto';
 }
 
+// Asuntos de publicidad: ofertas de préstamos, tarjetas o seguros con montos que no son movimientos
+var PUBLICIDAD = /te ofrec|ofrecemos|ofrece|necesitas|aprovech|pre-?aprobad|promoci[oó]n|oferta|solic[ií]ta(?:lo|la)?\b|cotiza|te espera|beneficio|\bgana|participa|sorteo|descuento|cashback de|hasta \$|\bextra\b/i;
+
 var PALABRAS_TRANSACCION = /compra|consumo|transacci[oó]n|cargo|retiro|pago|abono|autoriz|d[eé]bito|reversi|devoluci/i;
 
 function lectorTransaccion(texto) {
@@ -226,6 +229,7 @@ function lectorEstado(texto, asunto) {
 function leerCorreo(correo) {
   var texto = String(correo.asunto || '') + '\n' + textoPlano(correo.cuerpo) + (correo.adjunto ? '\n' + correo.adjunto : '');
   var banco = bancoPorRemitente(correo.de) || bancoPorTexto(texto);
+  if (PUBLICIDAD.test(String(correo.asunto || ''))) return null;
   var datos;
   if (esEstadoDeCuenta(texto)) {
     if (!banco) return null;
@@ -233,7 +237,8 @@ function leerCorreo(correo) {
     if (!datos.fechaCorte || datos.contado === null) return null;
   } else {
     datos = lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
-    if (!datos) return null;
+    // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otra cosa (va a "sin leer")
+    if (!datos || !datos.ultimos4) return null;
     // Sin banco reconocido solo se acepta una alerta clara de tarjeta (con dígitos y monto)
     if (!banco && !(datos.ultimos4 && /tarjeta/i.test(texto) && datos.confianza === 'alta')) return null;
     datos.fecha = datos.fecha || correo.fecha;

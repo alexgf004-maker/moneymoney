@@ -219,3 +219,11 @@ test('Cuscatlán: pago de servicio "Siman en línea" = pago a la tarjeta Siman d
   assert.equal(luz.ultimos4, '7777');
   assert.equal(luz.comercio, 'DELSUR');
 });
+
+test('publicidad del banco con montos no es un movimiento', () => {
+  const promo = (asunto, cuerpo) => leerCorreo({ de: 'Banco Agrícola <promociones@bancoagricola.com>', asunto, cuerpo, fecha: '2026-11-13' });
+  assert.equal(promo('¡Tu moto de trabajo te espera!', 'Obtén un crédito de hasta $3,000.00 para tu moto. Solicítalo hoy y paga tu compra en cuotas.'), null);
+  assert.equal(promo('El Extra que necesitas. Tómalo ya', 'Tienes disponible un préstamo de $2,100.00 con tu tarjeta. Pago a 12 meses.'), null);
+  // Sin dígitos de tarjeta tampoco cuenta, aunque el asunto no parezca publicidad
+  assert.equal(promo('Notificación', 'Te informamos sobre un cargo de $20.00 en tu cuenta.'), null);
+});
