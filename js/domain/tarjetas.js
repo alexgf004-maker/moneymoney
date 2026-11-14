@@ -7,8 +7,9 @@
 //   pagadoCorteInicial lo que ya se había abonado de ese corte. Sin esto la app no sabría cuánto falta pagar
 //   del primer corte, porque no tiene los movimientos de antes.
 //
-// Movimientos que afectan la tarjeta (cuentaId = id de la tarjeta):
-//   gasto -> aumenta la deuda · pago y reembolso -> la bajan
+// Movimientos que afectan la tarjeta:
+//   cuentaId = la tarjeta: gasto -> aumenta la deuda · pago y reembolso -> la bajan
+//   desdeId = la tarjeta en un pago: se pagó OTRA deuda con esta tarjeta (p. ej. la Siman con la Cuscatlán) -> aumenta la deuda
 
 import { deISO, fechaConDia, sumarMeses, diasEntre } from './fechas.js';
 import { r2, sumar } from './dinero.js';
@@ -28,13 +29,15 @@ export function fechaPagoDe(tarjeta, corte) {
   return mismoMes > corte ? mismoMes : fechaConDia(d.getFullYear(), d.getMonth() + 1, tarjeta.diaPago);
 }
 
-const efecto = m => (m.tipo === 'gasto' ? m.monto : m.tipo === 'pago' || m.tipo === 'reembolso' ? -m.monto : 0);
+const esCargo = (m, id) => m.tipo === 'gasto' || (m.tipo === 'pago' && m.desdeId === id && m.cuentaId !== id);
 
-const deLaTarjeta = (tarjeta, movs) => movs.filter(m => m.cuentaId === tarjeta.id && m.fecha > tarjeta.fechaSaldo);
+const efecto = id => m => (esCargo(m, id) ? m.monto : m.tipo === 'pago' || m.tipo === 'reembolso' ? -m.monto : 0);
+
+const deLaTarjeta = (tarjeta, movs) => movs.filter(m => (m.cuentaId === tarjeta.id || (m.tipo === 'pago' && m.desdeId === tarjeta.id)) && m.fecha > tarjeta.fechaSaldo);
 
 // Saldo al final del día `fecha` (solo para fechas desde que se configuró)
 export function saldoEn(tarjeta, movs, fecha) {
-  return r2((tarjeta.saldoInicial || 0) + sumar(deLaTarjeta(tarjeta, movs).filter(m => m.fecha <= fecha).map(efecto)));
+  return r2((tarjeta.saldoInicial || 0) + sumar(deLaTarjeta(tarjeta, movs).filter(m => m.fecha <= fecha).map(efecto(tarjeta.id))));
 }
 
 function saldoAlCorte(tarjeta, movs, corte) {
@@ -44,7 +47,7 @@ function saldoAlCorte(tarjeta, movs, corte) {
 
 function pagadoDesde(tarjeta, movs, corte, hoy) {
   const abonos = deLaTarjeta(tarjeta, movs)
-    .filter(m => (m.tipo === 'pago' || m.tipo === 'reembolso') && m.fecha > corte && m.fecha <= hoy)
+    .filter(m => m.cuentaId === tarjeta.id && (m.tipo === 'pago' || m.tipo === 'reembolso') && m.fecha > corte && m.fecha <= hoy)
     .map(m => m.monto);
   const previo = corte <= tarjeta.fechaSaldo ? tarjeta.pagadoCorteInicial || 0 : 0;
   return r2(previo + sumar(abonos));
@@ -72,7 +75,7 @@ export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
   const minimoBase = real && real.minimo != null ? real.minimo : saldoCorte * (tarjeta.minimoPct ?? 5) / 100;
   const minimo = r2(Math.min(contadoPendiente, Math.max(minimoBase - pagado, 0)));
   const tasaMensual = (tarjeta.tasaAnual || 0) / 12 / 100;
-  const comprasCiclo = sumar(deLaTarjeta(tarjeta, movs).filter(m => m.tipo === 'gasto' && m.fecha > corte && m.fecha <= hoy).map(m => m.monto));
+  const comprasCiclo = sumar(deLaTarjeta(tarjeta, movs).filter(m => esCargo(m, tarjeta.id) && m.fecha > corte && m.fecha <= hoy).map(m => m.monto));
   const vencido = hoy > fechaPago && contadoPendiente > 0;
   return {
     saldoActual,

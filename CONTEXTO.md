@@ -78,7 +78,13 @@ tests/              *.test.js con node --test (reglas y lector) · app.spec.js c
 
 ## Pendiente
 
-- Faltan ejemplos de correos de compra de BAC, Cuscatlán y Siman, y el estado de cuenta de Agrícola y Siman.
+- Faltan ejemplos del estado de cuenta de Agrícola y Siman.
+- Confirmar las direcciones exactas de los remitentes cuando el script corra (la búsqueda incluye "notificaciones" y "alertas").
+
+## Pagos entre tarjetas
+Un pago con `desdeId` = otra tarjeta (p. ej. pagar la Siman desde la Cuscatlán con "Pago de servicio") baja la deuda de
+`cuentaId` y sube la de `desdeId`. No cuenta como gasto. Los movimientos repetidos (misma tarjeta, tipo y monto con un
+día de margen) se descartan al llegar (`esDuplicado`).
 - Importar estados de cuenta en PDF (se necesita un ejemplo de cada banco).
 - Clasificar con IA los comercios desconocidos (opcional).
 - Recordatorios de pago fuera de la app (por ejemplo, un correo diario desde el mismo script).

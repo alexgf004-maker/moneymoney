@@ -154,3 +154,68 @@ test('ignora promociones y correos que no son de bancos', () => {
   assert.equal(leerCorreo({ de: 'promo@bancoagricola.com', asunto: '¡Aprovecha nuestras ofertas!', cuerpo: 'Viaja este verano', fecha: '2026-11-14' }), null);
   assert.equal(leerCorreo({ de: 'amigo@gmail.com', asunto: 'Compra', cuerpo: 'Compra por $10 en X', fecha: '2026-11-14' }), null);
 });
+
+test('Siman: movimiento en tarjeta CREDISIMAN (comercio en minúsculas)', () => {
+  const r = leerCorreo({
+    de: 'Notificaciones <notificaciones@credisiman.com>',
+    asunto: 'Juan Perez, notificación de movimiento en su tarjeta CREDISIMAN 21/07/2026',
+    cuerpo: '<p>Estimado(a) JUAN PEREZ</p><p>Se le informa que su tarjeta <b>CREDISIMAN</b> <b>3333</b> ha realizado <b>compra</b> por USD <b>$ 44.99</b> en <b>PM.Merliot</b>.</p><p>Cualquier consulta o información adicional, comuníquese al teléfono <b>2298-0000</b>.</p>',
+    fecha: '2026-07-21',
+  });
+  assert.equal(r.banco, 'siman');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 44.99);
+  assert.equal(r.ultimos4, '3333');
+  assert.equal(r.comercio, 'PM.Merliot');
+});
+
+test('Cuscatlán: compra con tarjeta titular', () => {
+  const r = leerCorreo({
+    de: 'Notificaciones <notificaciones@bancocuscatlan.com>',
+    asunto: 'Compra con Tarjeta de Credito Titular',
+    cuerpo: '<p><b>Estimado Cliente: JUAN</b></p><p>Se ha realizado una compra con su tarjeta titular de Banco CUSCATLAN XXXXXXXXXX7777 por USD 15.23 en POLLO CAMPERO C710 SAN MA el día 2026-11-05 12:56. Consultas al 22120000.</p>',
+    fecha: '2026-11-05',
+  });
+  assert.equal(r.banco, 'cuscatlan');
+  assert.equal(r.monto, 15.23);
+  assert.equal(r.ultimos4, '7777');
+  assert.equal(r.comercio, 'POLLO CAMPERO C710 SAN MA');
+  assert.equal(r.fecha, '2026-11-05');
+});
+
+test('BAC: compra con "Detalles del movimiento" en tabla y monto sin $', () => {
+  const r = leerCorreo({
+    de: 'Alertas BAC <alertas@notificacionesbaccr.com>',
+    asunto: 'Alerta de compra',
+    cuerpo: `<h2>Estimado/a: JUAN PEREZ LOPEZ</h2><p>Se acaba de realizar una compra con tu tarjeta <b>MASTERCARD</b> terminada en <b>4444</b></p>
+      <h3>Detalles del movimiento:</h3>
+      <table><tr><td><img alt=""></td><td><img alt=""></td></tr><tr><td>Comercio</td><td>Monto</td></tr><tr><td>WALMART CONSTITUCION</td><td>177.78</td></tr></table>
+      <table><tr><td>Fecha y hora</td></tr><tr><td>2026/10/17-11:06:03</td></tr></table>`,
+    fecha: '2026-10-17',
+  });
+  assert.equal(r.banco, 'bac');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 177.78);
+  assert.equal(r.ultimos4, '4444');
+  assert.equal(r.comercio, 'WALMART CONSTITUCION');
+  assert.equal(r.fecha, '2026-10-17');
+});
+
+test('Cuscatlán: pago de servicio "Siman en línea" = pago a la tarjeta Siman desde la tarjeta Cuscatlán', () => {
+  const cuerpo = (servicio, asociacion) => `<h2>Pago de servicio</h2><p>Hola, Juan</p><p>Le informamos que el resultado del pago de servicio es el siguiente: <b>exitoso.</b></p>
+    <div><b>Pago exitoso</b></div><div>Tu producto</div><div><b>Juan Perez</b></div><div>************7777</div><div>Tarjeta de Credito - Banco CUSCATLAN</div>
+    <div>Servicio pagado:</div><div><b>${servicio}</b></div><div>Número de asociación:</div><div><b>${asociacion}</b></div>
+    <div>Monto</div><div><b>$177.84</b></div><div>Fecha y hora</div><div><b>10/03/2026 11:33:35</b></div>`;
+  const r = leerCorreo({ de: 'Banco Cuscatlan <notificaciones@bancocuscatlan.com>', asunto: 'Pago de servicio', cuerpo: cuerpo('Siman en línea', '6000000000003333'), fecha: '2026-03-10' });
+  assert.equal(r.tipo, 'pago');
+  assert.equal(r.banco, 'siman');
+  assert.equal(r.ultimos4, '3333');
+  assert.equal(r.origen4, '7777');
+  assert.equal(r.monto, 177.84);
+  assert.equal(r.fecha, '2026-03-10');
+  // Si lo pagado no es una tarjeta, es un gasto en la tarjeta Cuscatlán
+  const luz = leerCorreo({ de: 'Banco Cuscatlan <notificaciones@bancocuscatlan.com>', asunto: 'Pago de servicio', cuerpo: cuerpo('DELSUR', '1234567'), fecha: '2026-03-10' });
+  assert.equal(luz.tipo, 'gasto');
+  assert.equal(luz.ultimos4, '7777');
+  assert.equal(luz.comercio, 'DELSUR');
+});

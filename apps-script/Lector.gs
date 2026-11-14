@@ -8,19 +8,25 @@
 //  Agrícola  "Pago de tarjeta de crédito propia" (el monto viene solo en el PDF adjunto: Tarjeta **** 1234 / Monto del pago)
 //  Credicomer "Número de tarjeta / **** **** **** 1234 / Monto / $ 7.39 / Comercio / X / Fecha / dd/mm/aaaa" (etiqueta y valor en líneas)
 //  BAC       "ha recibido un abono a su tarjeta: ****1234 ... Cuenta Origen: ****5678 ... Monto: $92.33" (Transfer365)
+//  Cuscatlán "compra con su tarjeta titular de Banco CUSCATLAN XXXXXXXXXX1234 por USD 15.23 en COMERCIO el día aaaa-mm-dd"
+//  Cuscatlán "Pago de servicio" (Tu producto ****1234 / Servicio pagado / Número de asociación / Monto): si el servicio es
+//            una tarjeta (p. ej. "Siman en línea") es un pago a esa tarjeta hecho DESDE la tarjeta Cuscatlán
+//  BAC       "compra con tu tarjeta MASTERCARD terminada en 1234 / Detalles del movimiento: Comercio | Monto / X | 177.78" (sin $)
+//  Siman     "su tarjeta CREDISIMAN 1234 ha realizado compra por USD $ 44.99 en PM.Merliot."
 //  Estados de cuenta de Cuscatlán, BAC y EMMA (Credicomer): fecha de corte, fecha límite, pago mínimo y de contado
 
 var BANCOS = [
   { id: 'agricola', nombre: 'Banco Agrícola', remitentes: ['bancoagricola', 'agricola'], texto: /banco\s?agr[ií]cola/i },
-  { id: 'bac', nombre: 'BAC', remitentes: ['baccredomatic', 'credomatic', 'bac.com', 'notificacionesbac'], texto: /\bBAC\b|credomatic/ },
+  { id: 'bac', nombre: 'BAC', remitentes: ['baccredomatic', 'credomatic', 'bac.com', 'bac.net', 'notificacionesbac'], texto: /\bBAC\b|credomatic/i },
   { id: 'cuscatlan', nombre: 'Banco Cuscatlán', remitentes: ['cuscatlan'], texto: /cuscatl[aá]n/i },
   { id: 'credicomer', nombre: 'Credicomer', remitentes: ['credicomer', 'emmapay', 'emma'], texto: /credicomer|visa emma|emmapay/i },
-  { id: 'siman', nombre: 'Siman', remitentes: ['siman'], texto: /\bsiman\b/i },
+  { id: 'siman', nombre: 'Siman', remitentes: ['siman'], texto: /credisiman|\bsiman\b/i },
 ];
 
 // Palabras para la búsqueda en Gmail (remitente o asunto)
-var BUSQUEDA_REMITENTES = ['bancoagricola', 'baccredomatic', 'credomatic', 'cuscatlan', 'credicomer', 'emmapay', 'emma', 'siman'];
-var BUSQUEDA_ASUNTOS = ['"estado de cuenta"', '"alerta"', '"transfer365"', '"notificación"', '"transacción"', '"compra"'];
+// (Varios bancos escriben desde "notificaciones@..." o "alertas@...": el lector descarta lo que no sea de un banco)
+var BUSQUEDA_REMITENTES = ['bancoagricola', 'baccredomatic', 'credomatic', 'cuscatlan', 'credicomer', 'emmapay', 'emma', 'siman', 'credisiman', 'notificaciones', 'notificacion', 'alertas'];
+var BUSQUEDA_ASUNTOS = ['"estado de cuenta"', '"alerta"', '"transfer365"', '"notificación"', '"transacción"', '"compra"', '"credisiman"', '"pago de servicio"', '"movimiento"'];
 
 function bancoPorRemitente(de) {
   var t = String(de || '').toLowerCase();
@@ -63,16 +69,16 @@ function leerNumero(s) {
 
 var DOS = function (n) { return (n < 10 ? '0' : '') + n; };
 
-// dd/mm/aaaa, dd-mm-aaaa o aaaa-mm-dd -> aaaa-mm-dd
+// dd/mm/aaaa, dd-mm-aaaa, aaaa-mm-dd o aaaa/mm/dd -> aaaa-mm-dd
 function leerFecha(s) {
-  var m = String(s || '').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  var m = String(s || '').match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
   if (m) return m[1] + '-' + DOS(+m[2]) + '-' + DOS(+m[3]);
   m = String(s || '').match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
   if (m) return m[3] + '-' + DOS(+m[2]) + '-' + DOS(+m[1]);
   return null;
 }
 
-var FECHA = '(\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{4}|\\d{4}-\\d{1,2}-\\d{1,2})';
+var FECHA = '(\\d{1,2}[\\/-]\\d{1,2}[\\/-]\\d{4}|\\d{4}[\\/-]\\d{1,2}[\\/-]\\d{1,2})';
 // Separador entre etiqueta y valor: dos puntos, barra de tabla o salto de línea
 var SEP = '[\\s:|]*';
 
@@ -94,7 +100,8 @@ function buscarMonto(texto) {
 function buscarUltimos4(texto) {
   var m = texto.match(/(?:terminad[ao]|finalizad[ao]|que termina|con terminaci[oó]n)\s*(?:en)?\s*[:#]?\s*\**\s*(\d{4})\b/i)
     || texto.match(/tarjeta(?: de cr[eé]dito| de d[eé]bito)?[\s:|]*(\d{4})\b(?!\s*[-\/]\d)/i)
-    || texto.match(/(?:\*{2,}|[xX]{2,}|•{2,})[\s-]?(\d{4})\b/);
+    || texto.match(/(?:\*{2,}|[xX]{2,}|•{2,})[\s-]?(\d{4})\b/)
+    || texto.match(/tarjeta(?:\s+[A-Za-z]{3,15}){1,2}\s+(\d{4})\b(?!\s*[-\/]\d)/i);
   return m ? m[1] : null;
 }
 
@@ -114,6 +121,9 @@ function limpiarComercio(s) {
 }
 
 function buscarComercio(texto) {
+  // Lo más común: "... por USD 26.85 en COMERCIO" (justo después del monto)
+  var trasMonto = texto.match(/(?:US\s?\$|USD|\$)\s?\$?\s?[\d.,]*\d\s+en\s+([^\n]{2,60}?)(?=\s+el d[ií]a\b|\.\s|\.$|\n|,|$)/i);
+  if (trasMonto && /[A-Za-z]/.test(trasMonto[1])) return limpiarComercio(trasMonto[1]);
   var m = texto.match(/(?:comercio|establecimiento|nombre del comercio)[\s:|]*\n?[\s:|]*([^\n|]{2,60})/i);
   if (m && /[A-Za-z]/.test(limpiarComercio(m[1]))) return limpiarComercio(m[1]);
   // "... en NOMBRE DEL COMERCIO": se toma el primero que tenga letras ("terminada en 5678" no cuenta)
@@ -143,11 +153,44 @@ function lectorTransaccion(texto) {
     monto: monto,
     ultimos4: buscarUltimos4(texto),
     comercio: tipo === 'pago' ? null : buscarComercio(texto),
-    fecha: fechaEtiquetada(texto, ['fecha\\s*\\/\\s*hora', 'fecha de aplicaci[oó]n', 'fecha de pago', 'fecha aplicada', 'fecha']),
+    fecha: fechaEtiquetada(texto, ['fecha\\s*\\/\\s*hora', 'fecha y hora', 'fecha de aplicaci[oó]n', 'fecha de pago', 'fecha aplicada', 'el d[ií]a', 'fecha']),
     origen4: tipo === 'pago' ? buscarOrigen4(texto) : null,
   };
   datos.confianza = datos.ultimos4 && (tipo === 'pago' || datos.comercio) ? 'alta' : 'baja';
   return datos;
+}
+
+// BAC: "Detalles del movimiento" en tabla (Comercio | Monto / valor | valor). Se leen los valores en orden.
+function lectorDetalles(texto) {
+  var i = texto.search(/detalles del movimiento/i);
+  if (i < 0) return null;
+  var celdas = texto.slice(i).split(/[|\n]/).map(function (c) { return c.replace(/\s+/g, ' ').trim(); })
+    .filter(function (c) { return c && !/^(detalles del movimiento:?|comercio|monto|fecha y hora|fecha|hora|lugar)$/i.test(c); });
+  var monto = null, comercio = null, fecha = null;
+  celdas.forEach(function (c) {
+    if (monto === null && /^(?:US\s?\$|USD|\$)?\s?[\d,]*\d\.\d{2}$/.test(c)) monto = leerNumero(c);
+    else if (!fecha && leerFecha(c)) fecha = leerFecha(c);
+    else if (!comercio && /[A-Za-z]{2}/.test(c) && !/estimad|consult|llam|correo|banca|tel[eé]fono/i.test(c)) comercio = limpiarComercio(c);
+  });
+  if (!monto) return null;
+  var ultimos4 = buscarUltimos4(texto);
+  return { tipo: tipoDe(texto), monto: monto, ultimos4: ultimos4, comercio: comercio, fecha: fecha, origen4: null, confianza: ultimos4 && comercio ? 'alta' : 'baja' };
+}
+
+// Cuscatlán: pago de servicio con una tarjeta. Si lo pagado es otra tarjeta, es un pago a esa tarjeta.
+function lectorServicio(texto) {
+  if (!/pago de servicio/i.test(texto) || !/servicio pagado/i.test(texto)) return null;
+  var monto = buscarMonto(texto);
+  if (!monto) return null;
+  var servicio = limpiarComercio((texto.match(/servicio pagado[\s:|]*\n?[\s:|]*([^\n|]{2,60})/i) || [])[1] || '');
+  var producto4 = (texto.match(/tu producto[\s\S]{0,160}?(?:\*{2,}|[xX]{2,})(\d{4})\b/i) || [])[1] || null;
+  var asociacion4 = (texto.match(/n[uú]mero de (?:asociaci[oó]n|referencia|tarjeta|cuenta|contrato)[\s:|]*\n?[\s:|]*[*xX\d -]*?(\d{4})\b/i) || [])[1] || null;
+  var fecha = fechaEtiquetada(texto, ['fecha y hora', 'fecha']);
+  var destino = bancoPorTexto(servicio);
+  if (destino || /tarjeta|cr[eé]dito/i.test(servicio)) {
+    return { tipo: 'pago', monto: monto, ultimos4: asociacion4, comercio: servicio || null, fecha: fecha, origen4: producto4, banco: destino ? destino.id : null, confianza: asociacion4 ? 'alta' : 'baja' };
+  }
+  return { tipo: 'gasto', monto: monto, ultimos4: producto4, comercio: servicio || 'Pago de servicio', fecha: fecha, origen4: null, confianza: producto4 && servicio ? 'alta' : 'baja' };
 }
 
 // En los estados de cuenta a veces hay montos en moneda local y en dólares: se prefiere el de dólares
@@ -183,17 +226,19 @@ function lectorEstado(texto, asunto) {
 function leerCorreo(correo) {
   var texto = String(correo.asunto || '') + '\n' + textoPlano(correo.cuerpo) + (correo.adjunto ? '\n' + correo.adjunto : '');
   var banco = bancoPorRemitente(correo.de) || bancoPorTexto(texto);
-  if (!banco) return null;
   var datos;
   if (esEstadoDeCuenta(texto)) {
+    if (!banco) return null;
     datos = lectorEstado(texto, correo.asunto);
     if (!datos.fechaCorte || datos.contado === null) return null;
   } else {
-    datos = (banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
+    datos = lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
     if (!datos) return null;
+    // Sin banco reconocido solo se acepta una alerta clara de tarjeta (con dígitos y monto)
+    if (!banco && !(datos.ultimos4 && /tarjeta/i.test(texto) && datos.confianza === 'alta')) return null;
     datos.fecha = datos.fecha || correo.fecha;
   }
-  datos.banco = banco.id;
+  datos.banco = datos.banco || (banco ? banco.id : null);
   datos.asunto = String(correo.asunto || '').slice(0, 120);
   return datos;
 }

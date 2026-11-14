@@ -6,7 +6,7 @@ import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
 import { FIREBASE } from './config.js';
 import { iniciarFirebase, entrarConGoogle, salir } from './firebase.js';
-import { procesarEntrante, procesarEstado } from './domain/entrantes.js';
+import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
 import { recurrentesPendientes } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta } from './domain/tarjetas.js';
@@ -33,7 +33,8 @@ function procesarEntrantes() {
     if (e.tipo === 'estado') { if (e.fechaCorte && e.contado != null) estados.push(procesarEstado(e)); continue; }
     if (!(e.monto > 0)) continue;
     const mov = procesarEntrante(e, { tarjetas, reglas, cuentas });
-    if (!store.obtener('movimientos', mov.id)) nuevos.push({ ...mov, creado: Date.now() });
+    if (store.obtener('movimientos', mov.id) || esDuplicado(mov, [...store.lista('movimientos'), ...nuevos])) continue;
+    nuevos.push({ ...mov, creado: Date.now() });
   }
   store.guardarVarios('movimientos', nuevos, { silencioso: true });
   store.guardarVarios('estados', estados, { silencioso: true });

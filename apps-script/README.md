@@ -55,7 +55,11 @@ aparece en la app en **Más → Correos del banco sin leer**.
 | Banco Agrícola | Plan Alerta 365 | Compras con tarjeta |
 | Banco Agrícola | Pago de tarjeta de crédito propia | El pago (lo lee del PDF adjunto) |
 | Credicomer | Alerta monetaria | Compras con tarjeta |
+| BAC | Alertas (detalles del movimiento) | Compras con tarjeta |
 | BAC | Notificación de crédito Transfer365 | Pagos a tus tarjetas BAC |
+| Cuscatlán | Compra con tarjeta de crédito titular | Compras con tarjeta |
+| Cuscatlán | Pago de servicio | Si pagaste otra tarjeta (p. ej. Siman en línea): pago a esa tarjeta hecho con la Cuscatlán. Si no: gasto |
+| Siman | Notificación de movimiento en su tarjeta CREDISIMAN | Compras con tarjeta |
 | Cuscatlán, BAC y EMMA | Estado de cuenta | Fecha de corte, fecha límite, pago de contado y pago mínimo exactos |
 
 ## ¿Qué permisos tiene el script?

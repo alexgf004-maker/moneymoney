@@ -177,3 +177,22 @@ test('Uber Eats es comida, no transporte', () => {
   assert.equal(categorizar('DLC UBER EATS -I- SAN SALVADOR SV').categoriaId, 'comida');
   assert.equal(categorizar('UBER *TRIP').categoriaId, 'transporte');
 });
+
+test('pagar una tarjeta con otra: baja una deuda y sube la otra', () => {
+  const siman = { ...tarjeta, id: 'ts', ultimos4: '3333', saldoInicial: 200, fechaSaldo: '2026-03-01' };
+  const cusca = { ...tarjeta, id: 'tc', ultimos4: '7777', saldoInicial: 100, fechaSaldo: '2026-03-01' };
+  const m = procesarEntrante({ id: 'x', banco: 'siman', tipo: 'pago', fecha: '2026-03-10', monto: 177.84, ultimos4: '3333', origen4: '7777', confianza: 'alta' },
+    { tarjetas: [siman, cusca], reglas: [], cuentas: [] });
+  assert.equal(m.cuentaId, 'ts');
+  assert.equal(m.desdeId, 'tc');
+  assert.equal(estadoTarjeta(siman, [m], '2026-03-11').saldoActual, 22.16);
+  assert.equal(estadoTarjeta(cusca, [m], '2026-03-11').saldoActual, 277.84);
+  assert.equal(totalGastado([m], '2026-03'), 0); // pasar deuda de una tarjeta a otra no es gasto
+});
+
+test('el mismo movimiento en dos correos no se repite', async () => {
+  const { esDuplicado } = await import('../js/domain/entrantes.js');
+  const a = { id: 'gm_1', tipo: 'gasto', monto: 10, ultimos4: '1111', fecha: '2026-11-05' };
+  assert.equal(esDuplicado({ ...a, id: 'gm_2', fecha: '2026-11-06' }, [a]), true);
+  assert.equal(esDuplicado({ ...a, id: 'gm_2', monto: 11 }, [a]), false);
+});

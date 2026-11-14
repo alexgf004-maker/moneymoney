@@ -6,6 +6,13 @@
 import { categorizar } from './categorias.js';
 import { r2 } from './dinero.js';
 
+// ¿Ya existe el mismo movimiento? (dos correos de la misma compra: misma tarjeta, monto y fecha con 1 día de margen)
+export function esDuplicado(mov, existentes) {
+  const t = Date.parse(mov.fecha);
+  return existentes.some(m => m.id !== mov.id && m.tipo === mov.tipo && m.monto === mov.monto && m.ultimos4 && m.ultimos4 === mov.ultimos4
+    && Math.abs(Date.parse(m.fecha) - t) <= 86400000);
+}
+
 export function buscarTarjeta(entrante, tarjetas) {
   const mismos = tarjetas.filter(t => t.ultimos4 && t.ultimos4 === entrante.ultimos4);
   if (mismos.length <= 1) return mismos[0] || null;
@@ -21,10 +28,12 @@ export function procesarEstado(e) {
   };
 }
 
-// cuentas: para saber desde qué cuenta salió un pago (por los últimos 4 del número de cuenta)
+// cuentas: para saber desde dónde salió un pago (cuenta por sus últimos 4, o una tarjeta si se pagó con otra tarjeta)
 export function procesarEntrante(entrante, { tarjetas, reglas, cuentas = [] }) {
   const tarjeta = buscarTarjeta(entrante, tarjetas);
-  const desde = entrante.origen4 ? cuentas.find(c => c.cuenta4 === entrante.origen4 || c.ultimos4 === entrante.origen4) : null;
+  const desde = entrante.origen4
+    ? cuentas.find(c => c.cuenta4 === entrante.origen4) || tarjetas.find(t => t.ultimos4 === entrante.origen4 && t.id !== tarjeta?.id) || null
+    : null;
   const tipo = entrante.tipo || 'gasto';
   const { categoriaId, segura } = tipo === 'gasto'
     ? categorizar(entrante.comercio, reglas)
