@@ -51,6 +51,7 @@ export function procesarEntrante(entrante, { tarjetas, reglas, cuentas = [] }) {
     banco: entrante.banco,
     ultimos4: entrante.ultimos4 || null,
     origen4: entrante.origen4 || null,
+    debito: !!entrante.debito,
     // Se marca para revisar si algo no quedó claro: tarjeta desconocida, categoría adivinada o lectura dudosa
     revisar: !tarjeta || !segura || entrante.confianza === 'baja',
   };

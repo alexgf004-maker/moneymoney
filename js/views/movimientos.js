@@ -75,7 +75,7 @@ export function filaMovimiento(m) {
   const signo = m.tipo === 'ingreso' || m.tipo === 'reembolso' ? '+' : esPago ? '' : '-';
   const detalle = esPago
     ? `${m.extra ? 'Abono a capital' : 'Pago'}${m.desdeId ? ` desde ${nombreCuenta(m.desdeId)}` : ''}`
-    : `${c.nombre} · ${m.cuentaId ? nombreCuenta(m.cuentaId) : 'Tarjeta sin identificar'}`;
+    : `${c.nombre} · ${m.cuentaId ? nombreCuenta(m.cuentaId) : m.debito ? `Débito ···${m.ultimos4}, elige la cuenta` : m.ultimos4 ? `Tarjeta ···${m.ultimos4}, agrégala en Deudas` : 'Tarjeta sin identificar'}`;
   return `<button class="row ${m.revisar ? 'revisar' : ''}" data-accion="modal" data-tipo="movimiento" data-id="${m.id}">
     ${tile(c.icono, signo === '+' ? 'ok' : '', !esPago && signo !== '+' ? `color:${c.color}` : '')}
     <span class="rt"><b>${esc(m.comercio || c.nombre)}</b><small>${esc(detalle)}${ORIGEN[m.origen] ? ` · ${ORIGEN[m.origen]}` : ''}</small></span>

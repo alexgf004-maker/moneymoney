@@ -151,6 +151,10 @@ function lectorTransaccion(texto) {
   var monto = buscarMonto(texto);
   if (!monto) return null;
   var tipo = tipoDe(texto);
+  // Transferencias y abonos de la cuenta de banco no son movimientos de tarjeta (salvo que sean un pago A una tarjeta)
+  if (/abono a (tu|su) cuenta|cr[eé]dito a (tu|su) cuenta|dep[oó]sito/i.test(texto)) return null;
+  if (/transferencia|env[ií]o de dinero|pago a terceros|cuenta de ahorro|cuenta corriente/i.test(texto) && tipo !== 'pago') return null;
+  if (tipo === 'pago' && !/tarjeta/i.test(texto)) return null;
   var datos = {
     tipo: tipo,
     monto: monto,
@@ -244,6 +248,7 @@ function leerCorreo(correo) {
     datos.fecha = datos.fecha || correo.fecha;
   }
   datos.banco = datos.banco || (banco ? banco.id : null);
+  if (datos.tipo !== 'estado' && /tarjeta de d[eé]bito/i.test(texto)) datos.debito = true;
   datos.asunto = String(correo.asunto || '').slice(0, 120);
   return datos;
 }

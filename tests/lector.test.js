@@ -227,3 +227,16 @@ test('publicidad del banco con montos no es un movimiento', () => {
   // Sin dígitos de tarjeta tampoco cuenta, aunque el asunto no parezca publicidad
   assert.equal(promo('Notificación', 'Te informamos sobre un cargo de $20.00 en tu cuenta.'), null);
 });
+
+test('Agrícola: transferencias de la cuenta no son movimientos de tarjeta', () => {
+  const leer = cuerpo => leerCorreo({ de: 'canalesdigitales@bancoagricola.com', asunto: 'Notificación de transacción', cuerpo, fecha: '2026-11-13' });
+  assert.equal(leer('Se ha aplicado satisfactoriamente tu transacción: Transferencia a terceros. Cuenta origen ****9999. Monto $20.00'), null);
+  assert.equal(leer('Hemos recibido un abono a tu cuenta de ahorro ****9999 por $50.00'), null);
+});
+
+test('compra con tarjeta de débito queda marcada como débito', () => {
+  const r = leerCorreo({ de: 'alertas@bancoagricola.com', asunto: 'Plan Alerta 365', cuerpo: 'Su tarjeta de débito 1234 ha realizado una compra por USD 12.00 en SUPER SELECTOS', fecha: '2026-11-13' });
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.ultimos4, '1234');
+  assert.equal(r.debito, true);
+});

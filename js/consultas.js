@@ -59,7 +59,8 @@ export function tarjetasDetectadas() {
     return mapa.get(clave);
   };
   for (const m of movs()) {
-    if (m.cuentaId || !m.ultimos4 || conocidas.has(m.ultimos4)) continue;
+    // Las de débito no se proponen como tarjetas de crédito: se asignan a una cuenta al revisarlas
+    if (m.cuentaId || !m.ultimos4 || m.debito || conocidas.has(m.ultimos4)) continue;
     const d = de(m.banco, m.ultimos4);
     if (m.tipo === 'gasto') d.compras++;
     if (!d.desde || m.fecha < d.desde) d.desde = m.fecha;
