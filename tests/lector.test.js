@@ -1,5 +1,5 @@
-// Pruebas del lector de correos (apps-script/Lector.gs). Los ejemplos son inventados con los formatos más
-// comunes; cuando lleguen correos reales de cada banco se agregan aquí (con datos cambiados).
+// Pruebas del lector de correos (apps-script/Lector.gs). Los ejemplos copian el FORMATO de correos reales
+// de cada banco (nov 2026), con nombres, números de tarjeta y montos inventados: el repositorio es público.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,45 +9,148 @@ const codigo = readFileSync(new URL('../apps-script/Lector.gs', import.meta.url)
 const ctx = { module: { exports: {} } };
 vm.runInNewContext(codigo, ctx);
 const { leerCorreo } = ctx.module.exports;
+const plano = o => JSON.parse(JSON.stringify(o));
 
-test('compra con etiquetas (tabla HTML)', () => {
+test('Agrícola: alerta de compra (Plan Alerta 365)', () => {
   const r = leerCorreo({
-    de: 'Alertas <alertas@bancoagricola.com>',
-    asunto: 'Notificación de transacción',
-    cuerpo: '<table><tr><td>Comercio:</td><td>SUPER SELECTOS ESCALON</td></tr><tr><td>Monto:</td><td>USD 45.30</td></tr><tr><td>Tarjeta:</td><td>VISA ****1234</td></tr></table>',
-    fecha: '2026-11-14',
+    de: 'Plan Alerta 365 <alertas@bancoagricola.com>',
+    asunto: 'Notificación de Plan Alerta 365',
+    cuerpo: `<div>Notificación de</div><h1>Plan Alerta 365</h1>
+      <p>Estimado(a): <b>JUAN PEREZ LOPEZ</b></p>
+      <p>Por este medio deseamos informarle que su tarjeta de crédito 1111 ha realizado una compra por USD 26.85 en N1CO*VIDRI LOURDES N1C COLON</p>
+      <p>Fecha/Hora: 03/11/2026 15:21:03</p>
+      <p>En caso de no haber realizado esta transacción, por favor reportarla llamando al teléfono 2210-0000 Call Center de Bancoagrícola.</p>`,
+    fecha: '2026-11-04',
   });
-  assert.equal(r.banco, 'agricola');
-  assert.equal(r.monto, 45.3);
-  assert.equal(r.ultimos4, '1234');
-  assert.equal(r.comercio, 'SUPER SELECTOS ESCALON');
-  assert.equal(r.tipo, 'gasto');
-  assert.equal(r.confianza, 'alta');
+  assert.deepEqual(plano(r), {
+    tipo: 'gasto', monto: 26.85, ultimos4: '1111', comercio: 'N1CO*VIDRI LOURDES N1C COLON', fecha: '2026-11-03',
+    origen4: null, confianza: 'alta', banco: 'agricola', asunto: 'Notificación de Plan Alerta 365',
+  });
 });
 
-test('compra en una frase', () => {
+test('Credicomer: alerta monetaria (etiqueta y valor en líneas separadas)', () => {
   const r = leerCorreo({
-    de: 'notificacion@baccredomatic.com',
-    asunto: 'Compra aprobada',
-    cuerpo: 'Se realizó una compra con tu tarjeta terminada en 5678 por $1,250.00 en PRICESMART SANTA ELENA el día 14/11/2026.',
-    fecha: '2026-11-14',
+    de: 'ALERTAS CREDICOMER <alertas@credicomer.com.sv>',
+    asunto: 'ALERTA MONETARIA TARJETAS CREDICOMER',
+    cuerpo: `<h2>Transacción Exitosa</h2><p>Te presentamos el comprobante de la Transacción realizada</p>
+      <div><div>Cliente</div><div>JUAN PEREZ LOPEZ</div></div>
+      <div><div>Número de tarjeta</div><div>**** **** **** 2222</div></div>
+      <div><div>Monto</div><div>$ 7.39</div></div>
+      <div><div>Comercio</div><div>DLC UBER EATS -I- SAN SALVADOR SV</div></div>
+      <div><div>Fecha</div><div>07/11/2026</div></div>`,
+    fecha: '2026-11-07',
+  });
+  assert.equal(r.banco, 'credicomer');
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 7.39);
+  assert.equal(r.ultimos4, '2222');
+  assert.equal(r.comercio, 'DLC UBER EATS -I- SAN SALVADOR SV');
+  assert.equal(r.fecha, '2026-11-07');
+});
+
+test('BAC: abono a la tarjeta por Transfer365 (es un pago, con la cuenta de origen)', () => {
+  const r = leerCorreo({
+    de: 'notificaciones@notificacionesbac.com',
+    asunto: 'Notificación de Crédito Transfer365 del Banco Central de Reserva',
+    cuerpo: `<p>Estimado(a): JUAN PEREZ,</p>
+      <p>BAC le notifica que ha recibido un abono a su tarjeta: ************3333 por medio del Sistema Transfer365 del Banco Central de Reserva.</p>
+      <p><u>Detalle de la transferencia</u><br>Fecha de aplicación: 2026-11-06 04:11:03<br>Referencia: VPE5100000000000000000000001<br>
+      Cliente Origen: JUAN PEREZ LOPEZ<br>Cuenta Origen: **********4444<br>Concepto: pago<br>Banco Origen: AGRÍCOLA<br>Monto: $92.33</p>`,
+    fecha: '2026-11-06',
   });
   assert.equal(r.banco, 'bac');
-  assert.equal(r.monto, 1250);
-  assert.equal(r.ultimos4, '5678');
-  assert.equal(r.comercio, 'PRICESMART SANTA ELENA');
+  assert.equal(r.tipo, 'pago');
+  assert.equal(r.monto, 92.33);
+  assert.equal(r.ultimos4, '3333');
+  assert.equal(r.origen4, '4444');
+  assert.equal(r.fecha, '2026-11-06');
 });
 
-test('pago recibido y reversión', () => {
-  const pago = leerCorreo({ de: 'x@bancocuscatlan.com', asunto: 'Pago recibido', cuerpo: 'Hemos recibido tu pago de $300.00 a tu tarjeta terminada en 4321.', fecha: '2026-11-14' });
-  assert.equal(pago.tipo, 'pago');
-  assert.equal(pago.monto, 300);
+test('Agrícola: pago de tarjeta propia (monto solo en el PDF adjunto)', () => {
+  const sinPdf = {
+    de: 'canalesdigitales@bancoagricola.com',
+    asunto: 'Notificación de transacción',
+    cuerpo: '<p>Por este medio deseamos informarte que se ha aplicado satisfactoriamente tu transacción: <i>Pago de tarjeta de crédito propia</i></p><ul><li>ID: abc123</li><li>Fecha/hora: 14/11/2026 10:25:21</li></ul>',
+    fecha: '2026-11-14',
+  };
+  assert.equal(leerCorreo(sinPdf), null);
+  const r = leerCorreo({ ...sinPdf, adjunto: 'Bancoagrícola\nPago de tarjeta de crédito propia\nDatos del ticket\nTarjeta **** 5555\nFecha de pago 14/11/2026\nMonto del pago $463.61\nConcepto Ya\nDesde 1234566666 CA\nEstado FINALIZADO' });
+  assert.equal(r.tipo, 'pago');
+  assert.equal(r.monto, 463.61);
+  assert.equal(r.ultimos4, '5555');
+  assert.equal(r.origen4, '6666');
+  assert.equal(r.fecha, '2026-11-14');
+});
+
+test('Cuscatlán: estado de cuenta digital', () => {
+  const r = leerCorreo({
+    de: 'Banco Cuscatlan <estadosdecuenta@bancocuscatlan.com>',
+    asunto: 'Estado de Cuenta Digital',
+    cuerpo: `<h1>Estado de Cuenta Digital</h1><p>Estimado(a) Cliente: JUAN PEREZ LOPEZ</p>
+      <p>Adjunto encontrarás el estado de cuenta mensual de tu Tarjeta de Crédito CASH BACK PEDIDOS YA VISA CUSCATLAN.</p>
+      <p>Tarjeta Nº</p><p>431063******7777</p>
+      <table><tr><td>Fecha de corte:</td><td>23/10/2026</td></tr><tr><td>Última fecha de pago:</td><td>17/11/2026</td></tr>
+      <tr><td>Pago mínimo:</td><td>$5.00</td></tr><tr><td>Pago de contado:</td><td>$129.11</td></tr></table>`,
+    fecha: '2026-10-24',
+  });
+  assert.deepEqual(plano(r), {
+    tipo: 'estado', ultimos4: '7777', nombre: 'CASH BACK PEDIDOS YA VISA CUSCATLAN', fechaCorte: '2026-10-23', fechaPago: '2026-11-17',
+    contado: 129.11, minimo: 5, banco: 'cuscatlan', asunto: 'Estado de Cuenta Digital',
+  });
+});
+
+test('BAC: estado de cuenta (número con XX y fechas con guiones)', () => {
+  const r = leerCorreo({
+    de: 'BAC Credomatic <estadosdecuenta@baccredomatic.com>',
+    asunto: 'Estado de cuenta Tarjeta de Crédito',
+    cuerpo: `<h1>Tarjeta de Crédito</h1><p>Estimado/a cliente, JUAN PEREZ</p><p>Por este medio te enviamos el estado de cuenta de tu tarjeta.</p>
+      <table><tr><td>Tipo de cuenta</td></tr><tr><td>4568-46XX-XXXX-8888</td></tr></table>
+      <table><tr><td>Fecha de corte<br>09-11-2026</td><td>Fecha de vencimiento<br>30-11-2026</td></tr></table>
+      <table><tr><td>Pago mínimo dólares</td><td>$ 59.00</td></tr><tr><td>Pago de contado dólares</td><td>$ 101.35</td></tr></table>`,
+    fecha: '2026-11-10',
+  });
+  assert.equal(r.tipo, 'estado');
+  assert.equal(r.banco, 'bac');
+  assert.equal(r.ultimos4, '8888');
+  assert.equal(r.fechaCorte, '2026-11-09');
+  assert.equal(r.fechaPago, '2026-11-30');
+  assert.equal(r.minimo, 59);
+  assert.equal(r.contado, 101.35);
+});
+
+test('EMMA (Credicomer): estado de cuenta con moneda local y dólares', () => {
+  const r = leerCorreo({
+    de: 'EMMA Estados de Cuenta <estados@emmapay.com>',
+    asunto: 'Estado de Cuenta VISA EMMA',
+    cuerpo: `<p>Estimado(a) Cliente, Adjunto encontrará el Estado de Cuenta de su Tarjeta.</p>
+      <table><tr><td><b>Resumen de su Estado de Cuenta</b></td></tr>
+      <tr><td>Pago de Contado Moneda Local:</td><td>0.00</td></tr><tr><td>Pago de Contado Dólares:</td><td>$ 38.69</td></tr>
+      <tr><td>Pago Mínimo Moneda Local</td><td>0.00</td></tr><tr><td>Pago Mínimo Dólares:</td><td>$ 5.00</td></tr>
+      <tr><td>Fecha de Corte:</td><td>08/11/2026</td></tr><tr><td>Fecha Límite Para Pago de Contado:</td><td></td></tr>
+      <tr><td>Fecha Límite Para Pago Mínimo</td><td>04/12/2026</td></tr></table>`,
+    fecha: '2026-11-09',
+  });
+  assert.equal(r.tipo, 'estado');
+  assert.equal(r.banco, 'credicomer');
+  assert.equal(r.nombre, 'VISA EMMA');
+  assert.equal(r.contado, 38.69);
+  assert.equal(r.minimo, 5);
+  assert.equal(r.fechaCorte, '2026-11-08');
+  assert.equal(r.fechaPago, '2026-12-04');
+});
+
+test('formatos generales: reversión y frase con "terminada en"', () => {
   const rev = leerCorreo({ de: 'x@credicomer.com.sv', asunto: 'Reversión de compra', cuerpo: 'Reversión de transacción. Comercio: AMAZON. Monto: $20.00. Tarjeta XXXX1111', fecha: '2026-11-14' });
   assert.equal(rev.tipo, 'reembolso');
   assert.equal(rev.comercio, 'AMAZON');
+  const c = leerCorreo({ de: 'notificacion@baccredomatic.com', asunto: 'Compra aprobada', cuerpo: 'Se realizó una compra con tu tarjeta terminada en 5678 por $1,250.00 en PRICESMART SANTA ELENA el día 14/11/2026.', fecha: '2026-11-14' });
+  assert.equal(c.monto, 1250);
+  assert.equal(c.ultimos4, '5678');
+  assert.equal(c.comercio, 'PRICESMART SANTA ELENA');
+  assert.equal(c.fecha, '2026-11-14');
 });
 
-test('ignora promociones y remitentes que no son bancos', () => {
+test('ignora promociones y correos que no son de bancos', () => {
   assert.equal(leerCorreo({ de: 'promo@bancoagricola.com', asunto: '¡Aprovecha nuestras ofertas!', cuerpo: 'Viaja este verano', fecha: '2026-11-14' }), null);
   assert.equal(leerCorreo({ de: 'amigo@gmail.com', asunto: 'Compra', cuerpo: 'Compra por $10 en X', fecha: '2026-11-14' }), null);
 });

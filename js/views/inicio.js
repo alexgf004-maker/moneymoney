@@ -1,6 +1,6 @@
 import { ui, esc, ic, tile, lin, top, sec, montoGrande } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, tarjetas, prestamos, recurrentes, resumenDeudas } from '../consultas.js';
+import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, tarjetasDetectadas } from '../consultas.js';
 import { totalGastado, totalIngresos, porCategoria, gastadoMismoDia, estadoPresupuestos, proximosPagos } from '../domain/resumen.js';
 import { categoria } from '../domain/categorias.js';
 import { dinero } from '../domain/dinero.js';
@@ -28,13 +28,14 @@ export function vistaInicio() {
   const antes = gastadoMismoDia(m, mesAnterior(mes), fecha.getDate());
   const dif = antes ? (gastado - antes) / antes : 0;
   const nombreAntes = nombreMes(mesAnterior(mes)).split(' ')[0];
-  const agenda = proximosPagos({ tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), movs: m }, hoy, 15);
+  const agenda = proximosPagos({ tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), movs: m, estadosDe }, hoy, 15);
   const limites = Object.fromEntries(lista('presupuestos').map(p => [p.id, p.limite]));
   const alertas = estadoPresupuestos(limites, m, mes, hoy).filter(p => p.nivel !== 'ok');
   const cats = porCategoria(m, mes).slice(0, 5);
   const maxCat = cats[0]?.total || 1;
   const porRevisar = m.filter(x => x.revisar).length;
   const noLeidos = lista('noLeidos').length;
+  const detectadas = tarjetasDetectadas().length;
   const deudas = resumenDeudas(hoy);
 
   return `${encabezado}
@@ -58,6 +59,7 @@ export function vistaInicio() {
       <button class="act" data-accion="ir" data-vista="deudas" data-tab="plan">${ic('escalera')}<div>Plan</div></button>
     </nav>
 
+    ${detectadas ? `<button class="aviso-fila" data-accion="ir" data-vista="deudas" data-tab="tarjetas">${ic('tarjeta')}<span class="rt"><b>Encontré ${detectadas} tarjeta${detectadas > 1 ? 's' : ''} en tus correos</b><small>Agrégala${detectadas > 1 ? 's' : ''} con un toque</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
     ${porRevisar ? `<button class="aviso-fila" data-accion="ver-revisar">${ic('revisar')}<span class="rt"><b>${porRevisar} movimiento${porRevisar > 1 ? 's' : ''} por revisar</b><small>Confirma la tarjeta o la categoría</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
     ${noLeidos ? `<button class="aviso-fila" data-accion="ir" data-vista="mas" data-sub="noleidos">${ic('correo')}<span class="rt"><b>${noLeidos} correo${noLeidos > 1 ? 's' : ''} del banco sin leer</b><small>No parecen compras o el formato es nuevo</small></span></button>` : ''}
 

@@ -6,13 +6,13 @@ import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
 import { FIREBASE } from './config.js';
 import { iniciarFirebase, entrarConGoogle, salir } from './firebase.js';
-import { procesarEntrante } from './domain/entrantes.js';
+import { procesarEntrante, procesarEstado } from './domain/entrantes.js';
 import { recurrentesPendientes } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta } from './domain/tarjetas.js';
 import { leerMonto } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
-import { nombreCuenta } from './consultas.js';
+import { nombreCuenta, estadosDe } from './consultas.js';
 import { datosEjemplo } from './demo.js';
 
 const num = v => (v === '' || v === null || v === undefined ? null : leerMonto(v));
@@ -24,14 +24,19 @@ const entero = v => (v === '' || v == null ? null : parseInt(v, 10));
 function procesarEntrantes() {
   const entrantes = store.lista('entrantes');
   if (!entrantes.length) return 0;
-  const tarjetas = [...store.lista('tarjetas'), ...store.lista('cuentas').filter(c => c.ultimos4)];
+  const cuentas = store.lista('cuentas');
+  const tarjetas = [...store.lista('tarjetas'), ...cuentas.filter(c => c.ultimos4)];
   const reglas = store.lista('reglas');
   const nuevos = [];
+  const estados = [];
   for (const e of entrantes) {
-    const mov = procesarEntrante(e, { tarjetas, reglas });
+    if (e.tipo === 'estado') { if (e.fechaCorte && e.contado != null) estados.push(procesarEstado(e)); continue; }
+    if (!(e.monto > 0)) continue;
+    const mov = procesarEntrante(e, { tarjetas, reglas, cuentas });
     if (!store.obtener('movimientos', mov.id)) nuevos.push({ ...mov, creado: Date.now() });
   }
   store.guardarVarios('movimientos', nuevos, { silencioso: true });
+  store.guardarVarios('estados', estados, { silencioso: true });
   store.borrarVarios('entrantes', entrantes.map(e => e.id), { silencioso: true });
   return nuevos.length;
 }
@@ -77,7 +82,7 @@ const ACCIONES = {
   sub: d => irA('mas', { sub: d.sub }),
   atras: () => irA(ui.vista),
   'tab-deudas': d => { ui.deudasTab = d.tab; renderVista(); },
-  modal: d => abrir(d.tipo, { id: d.id || null, mov: d.mov || null }),
+  modal: d => abrir(d.tipo, { id: d.id || null, mov: d.mov || null, pre: d.pre || null }),
   cerrar,
   'cerrar-fondo': cerrar,
   pagar: d => abrir('pagar', { id: d.id }),
@@ -227,7 +232,7 @@ const FORMULARIOS = {
     if (!previo) {
       Object.assign(t, { saldoInicial: saldoHoy, fechaSaldo: hoy, saldoCorteInicial: num(f.saldoCorte) ?? saldoHoy, pagadoCorteInicial: num(f.pagadoCorte) || 0 });
     } else {
-      const e = estadoTarjeta(previo, store.lista('movimientos'), hoy);
+      const e = estadoTarjeta(previo, store.lista('movimientos'), hoy, estadosDe(previo));
       if (Math.abs(e.saldoActual - saldoHoy) > 0.005) {
         Object.assign(t, { saldoInicial: saldoHoy, fechaSaldo: hoy, saldoCorteInicial: e.saldoCorte, pagadoCorteInicial: e.pagadoDelCorte });
       }
@@ -235,7 +240,7 @@ const FORMULARIOS = {
     store.guardar('tarjetas', t);
     // Movimientos de correo que esperaban esta tarjeta
     const huerfanos = store.lista('movimientos').filter(m => !m.cuentaId && m.ultimos4 === t.ultimos4);
-    if (huerfanos.length) store.guardarVarios('movimientos', huerfanos.map(m => ({ ...m, cuentaId: t.id })));
+    if (huerfanos.length) store.guardarVarios('movimientos', huerfanos.map(m => ({ ...m, cuentaId: t.id, revisar: m.tipo !== 'pago' && m.categoriaId === 'otros' })));
   },
 
   prestamo(f, form) {
@@ -277,7 +282,7 @@ const FORMULARIOS = {
 
   cuenta(f, form) {
     const id = form.dataset.id || store.nuevoId('c');
-    store.guardar('cuentas', { ...(store.obtener('cuentas', id) || {}), id, nombre: f.nombre.trim(), tipo: f.tipo, banco: f.banco || null, ultimos4: f.ultimos4 || null });
+    store.guardar('cuentas', { ...(store.obtener('cuentas', id) || {}), id, nombre: f.nombre.trim(), tipo: f.tipo, banco: f.banco || null, ultimos4: f.ultimos4 || null, cuenta4: f.cuenta4 || null });
   },
 
   regla(f, form) {
@@ -313,7 +318,7 @@ store.alCambiar(origen => {
   renderVista();
 });
 montar();
-generarFijos();
+procesos();
 render();
 
 if (FIREBASE) {

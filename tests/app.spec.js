@@ -102,3 +102,38 @@ test('tema oscuro elegido a mano', async ({ page }) => {
   const fondo = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(fondo).toBe('rgb(12, 12, 13)');
 });
+
+test('correos del banco: compras, pagos y estados de cuenta llegan solos', async ({ page }) => {
+  const errores = [];
+  page.on('pageerror', e => errores.push(e.message));
+  // Lo que dejaría el script de Gmail en `entrantes` (datos inventados)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('sembrado')) return;
+    sessionStorage.setItem('sembrado', '1');
+    const hoy = new Date();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dias = n => iso(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + n));
+    localStorage.setItem('moneymoney:v1', JSON.stringify({ entrantes: {
+      a: { id: 'a', tipo: 'gasto', banco: 'credicomer', monto: 7.39, ultimos4: '2222', comercio: 'DLC UBER EATS -I- SAN SALVADOR SV', fecha: dias(-1), confianza: 'alta' },
+      b: { id: 'b', tipo: 'estado', banco: 'credicomer', ultimos4: null, nombre: 'VISA EMMA', fechaCorte: dias(-5), fechaPago: dias(20), contado: 38.69, minimo: 5 },
+      c: { id: 'c', tipo: 'estado', banco: 'cuscatlan', ultimos4: '7777', nombre: 'CASH BACK PEDIDOS YA VISA CUSCATLAN', fechaCorte: dias(-20), fechaPago: dias(3), contado: 129.11, minimo: 5 },
+    } }));
+  });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Encontré 2 tarjetas en tus correos/ })).toBeVisible();
+  await page.getByRole('button', { name: /Encontré 2 tarjetas/ }).click();
+  await page.locator('[data-pre="credicomer|2222"]').click();
+  const f = page.locator('form[data-form=tarjeta]');
+  await expect(f.locator('[name=nombre]')).toHaveValue('Visa Emma');
+  await expect(f.locator('[name=saldoCorte]')).toHaveValue('38.69');
+  await f.locator('[name=limite]').fill('500');
+  await f.locator('[name=saldoHoy]').fill('46.08');
+  await f.getByRole('button', { name: 'Guardar' }).click();
+  const emma = page.locator('.tc', { hasText: 'Visa Emma' });
+  await expect(emma).toContainText('Según tu estado de cuenta');
+  await expect(emma).toContainText('$38.69');
+  // La compra de Uber Eats quedó en la tarjeta y como comida
+  await page.locator('.nav').getByRole('button', { name: 'Movimientos' }).click();
+  await expect(page.locator('#vista')).toContainText('Restaurantes · Visa Emma ···2222');
+  expect(errores).toEqual([]);
+});

@@ -241,7 +241,7 @@ button.row:active { opacity: .7; }
 
 /* ---------- Vacío y bienvenida ---------- */
 .vacio { text-align: center; padding: 26px 18px; color: var(--mu); }
-.vacio .ic { font-size: 26px; color: var(--oro); }
+.vacio > .ic { font-size: 26px; color: var(--oro); }
 .vacio b { display: block; color: var(--tx); font-weight: 600; margin: 8px 0 2px; }
 .vacio .btn { margin-top: 14px; }
 .bienv .pc { padding: 26px 22px; }

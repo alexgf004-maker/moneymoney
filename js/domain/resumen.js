@@ -79,11 +79,11 @@ export function proximaFechaRecurrente(r, hoy) {
 }
 
 // Agenda: todo lo que hay que pagar en los próximos `dias`, más lo vencido
-export function proximosPagos({ tarjetas, prestamos, recurrentes, movs }, hoy, dias = 30) {
+export function proximosPagos({ tarjetas, prestamos, recurrentes, movs, estadosDe = () => [] }, hoy, dias = 30) {
   const hasta = sumarDias(hoy, dias);
   const lista = [];
   for (const t of tarjetas) {
-    const e = estadoTarjeta(t, movs, hoy);
+    const e = estadoTarjeta(t, movs, hoy, estadosDe(t));
     if (e.contadoPendiente > 0 && e.fechaPago <= hasta) {
       lista.push({ fecha: e.fechaPago, titulo: `${t.nombre} ···${t.ultimos4}`, detalle: `Mínimo aprox. ${dinero(e.minimoPendiente)}`, monto: e.contadoPendiente, tipo: 'tarjeta', id: t.id, vencido: e.vencido });
     }

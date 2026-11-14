@@ -148,3 +148,32 @@ test('movimiento desde correo: tarjeta por últimos 4 y categoría', () => {
   assert.equal(raro.cuentaId, null);
   assert.equal(raro.revisar, true);
 });
+
+test('estado de cuenta del banco: manda sobre el cálculo', () => {
+  const t = { ...tarjeta, diaCorte: 23, diaPago: 17, saldoInicial: 300, fechaSaldo: '2026-11-01', saldoCorteInicial: 280 };
+  const estados = [{ fechaCorte: '2026-10-23', fechaPago: '2026-11-17', contado: 129.11, minimo: 5 }];
+  const movs = [{ cuentaId: 't1', tipo: 'pago', monto: 29.11, fecha: '2026-11-10' }];
+  const e = estadoTarjeta(t, movs, '2026-11-14', estados);
+  assert.equal(e.fuente, 'banco');
+  assert.equal(e.saldoCorte, 129.11);
+  assert.equal(e.contadoPendiente, 100);
+  assert.equal(e.minimoPendiente, 0); // el mínimo de $5 ya quedó cubierto con el abono
+  assert.equal(e.fechaPago, '2026-11-17');
+  // Pasado el siguiente corte sin estado nuevo, vuelve al cálculo
+  assert.equal(estadoTarjeta(t, movs, '2026-12-01', estados).fuente, 'calculado');
+});
+
+test('pago desde correo: reconoce la cuenta de origen', () => {
+  const m = procesarEntrante({ id: 'p1', banco: 'bac', tipo: 'pago', fecha: '2026-11-06', monto: 92.33, ultimos4: '1234', origen4: '9999', confianza: 'alta' },
+    { tarjetas: [tarjeta], reglas: [], cuentas: [{ id: 'c1', nombre: 'Ahorro', cuenta4: '9999' }] });
+  assert.equal(m.tipo, 'pago');
+  assert.equal(m.cuentaId, 't1');
+  assert.equal(m.desdeId, 'c1');
+  assert.equal(m.categoriaId, null);
+  assert.equal(m.revisar, false);
+});
+
+test('Uber Eats es comida, no transporte', () => {
+  assert.equal(categorizar('DLC UBER EATS -I- SAN SALVADOR SV').categoriaId, 'comida');
+  assert.equal(categorizar('UBER *TRIP').categoriaId, 'transporte');
+});

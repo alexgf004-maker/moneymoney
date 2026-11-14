@@ -12,8 +12,19 @@ export function buscarTarjeta(entrante, tarjetas) {
   return mismos.find(t => t.banco === entrante.banco) || mismos[0];
 }
 
-export function procesarEntrante(entrante, { tarjetas, reglas }) {
+// Un estado de cuenta: se guarda tal cual en `estados` (un id por banco, tarjeta y corte)
+export function procesarEstado(e) {
+  return {
+    id: `${e.banco}_${e.ultimos4 || '0000'}_${e.fechaCorte}`,
+    banco: e.banco, ultimos4: e.ultimos4 || null, nombre: e.nombre || null,
+    fechaCorte: e.fechaCorte, fechaPago: e.fechaPago || null, contado: r2(e.contado), minimo: e.minimo == null ? null : r2(e.minimo),
+  };
+}
+
+// cuentas: para saber desde qué cuenta salió un pago (por los últimos 4 del número de cuenta)
+export function procesarEntrante(entrante, { tarjetas, reglas, cuentas = [] }) {
   const tarjeta = buscarTarjeta(entrante, tarjetas);
+  const desde = entrante.origen4 ? cuentas.find(c => c.cuenta4 === entrante.origen4 || c.ultimos4 === entrante.origen4) : null;
   const tipo = entrante.tipo || 'gasto';
   const { categoriaId, segura } = tipo === 'gasto'
     ? categorizar(entrante.comercio, reglas)
@@ -25,10 +36,12 @@ export function procesarEntrante(entrante, { tarjetas, reglas }) {
     tipo,
     cuentaId: tarjeta?.id || null,
     categoriaId: categoriaId || (tipo === 'pago' ? null : 'otros'),
-    comercio: entrante.comercio || entrante.asunto || 'Sin nombre',
+    comercio: entrante.comercio || (tipo === 'pago' ? 'Pago a tarjeta' : entrante.asunto || 'Sin nombre'),
+    desdeId: desde?.id || null,
     origen: 'correo',
     banco: entrante.banco,
     ultimos4: entrante.ultimos4 || null,
+    origen4: entrante.origen4 || null,
     // Se marca para revisar si algo no quedó claro: tarjeta desconocida, categoría adivinada o lectura dudosa
     revisar: !tarjeta || !segura || entrante.confianza === 'baja',
   };

@@ -19,10 +19,37 @@ function config_() {
   return { url: url, uid: uid };
 }
 
-function consulta_() {
-  var dominios = [];
-  BANCOS.forEach(function (b) { dominios = dominios.concat(b.remitentes); });
-  return 'from:(' + dominios.join(' OR ') + ') newer_than:' + DIAS_ATRAS + 'd';
+function consulta_(dias) {
+  return '(from:(' + BUSQUEDA_REMITENTES.join(' OR ') + ') OR subject:(' + BUSQUEDA_ASUNTOS.join(' OR ') + ')) newer_than:' + (dias || DIAS_ATRAS) + 'd';
+}
+
+// Texto de un PDF adjunto (comprobantes de pago). Usa el servicio avanzado de Drive: lo convierte a documento
+// de Google, lo exporta como texto y lo borra. Si Drive no está activado o el PDF tiene clave, devuelve ''.
+function textoDePdf_(msg) {
+  if (typeof Drive === 'undefined') return '';
+  var pdf = msg.getAttachments().filter(function (a) { return a.getContentType() === 'application/pdf' && a.getSize() < 3000000; })[0];
+  if (!pdf) return '';
+  try {
+    var archivo = Drive.Files.create({ name: 'moneymoney-temporal', mimeType: 'application/vnd.google-apps.document' }, pdf.copyBlob(), { ocrLanguage: 'es' });
+    var res = UrlFetchApp.fetch('https://www.googleapis.com/drive/v3/files/' + archivo.id + '/export?mimeType=text/plain', {
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true,
+    });
+    Drive.Files.remove(archivo.id);
+    return res.getResponseCode() === 200 ? res.getContentText() : '';
+  } catch (e) {
+    Logger.log('No se pudo leer el PDF: ' + e.message);
+    return '';
+  }
+}
+
+function leerMensaje_(msg) {
+  var correo = { de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody() || msg.getPlainBody(), fecha: fechaISO_(msg.getDate()) };
+  var datos = leerCorreo(correo);
+  if (!datos && (bancoPorRemitente(correo.de) || bancoPorTexto(textoPlano(correo.cuerpo)))) {
+    correo.adjunto = textoDePdf_(msg);
+    if (correo.adjunto) datos = leerCorreo(correo);
+  }
+  return { correo: correo, datos: datos };
 }
 
 // Ids de correos ya enviados (con la fecha), para no mandar dos veces el mismo
@@ -52,26 +79,33 @@ function fechaISO_(d) {
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
-function procesarCorreos() {
+function procesarCorreos(dias) {
+  dias = typeof dias === 'number' ? dias : DIAS_ATRAS;
   var cfg = config_();
   var hechos = procesados_();
   var etiqueta = GmailApp.getUserLabelByName(ETIQUETA) || GmailApp.createLabel(ETIQUETA);
-  var hilos = GmailApp.search(consulta_(), 0, 100);
+  var hilos = [];
+  for (var desde = 0; desde < 500; desde += 100) {
+    var pagina = GmailApp.search(consulta_(dias), desde, 100);
+    hilos = hilos.concat(pagina);
+    if (pagina.length < 100) break;
+  }
   var enviados = 0, noLeidos = 0;
   hilos.forEach(function (hilo) {
     var tocado = false;
     hilo.getMessages().forEach(function (msg) {
       var id = msg.getId();
       if (hechos[id]) return;
-      var correo = { de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody() || msg.getPlainBody(), fecha: fechaISO_(msg.getDate()) };
-      var datos = leerCorreo(correo);
+      var leido = leerMensaje_(msg);
+      var correo = leido.correo, datos = leido.datos;
+      var texto = textoPlano(correo.cuerpo);
       if (datos) {
         datos.id = id;
         enviar_(cfg, 'entrantes/' + id, datos);
         enviados++;
-      } else if (bancoPorRemitente(correo.de)) {
+      } else if ((bancoPorRemitente(correo.de) || bancoPorTexto(texto)) && PALABRAS_TRANSACCION.test(correo.asunto + ' ' + texto)) {
         // Correo del banco que no se pudo leer (promoción o formato nuevo): se guarda el inicio para mejorar el lector
-        enviar_(cfg, 'noLeidos/' + id, { id: id, fecha: correo.fecha, de: correo.de, asunto: correo.asunto.slice(0, 120), texto: textoPlano(correo.cuerpo).slice(0, 600) });
+        enviar_(cfg, 'noLeidos/' + id, { id: id, fecha: correo.fecha, de: correo.de, asunto: correo.asunto.slice(0, 120), texto: texto.slice(0, 600) });
         noLeidos++;
       }
       hechos[id] = Date.now();
@@ -93,12 +127,16 @@ function instalar() {
   Logger.log('Listo: se revisará el correo cada 5 minutos.');
 }
 
+// Ejecutar UNA vez después de instalar: trae los últimos 60 días (compras, pagos y estados de cuenta)
+function importarHistorial() {
+  procesarCorreos(60);
+}
+
 // Para revisar sin enviar nada: muestra en el registro lo que se leería de los últimos correos
 function probar() {
-  GmailApp.search(consulta_(), 0, 20).forEach(function (hilo) {
+  GmailApp.search(consulta_(30), 0, 30).forEach(function (hilo) {
     hilo.getMessages().forEach(function (msg) {
-      var datos = leerCorreo({ de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody(), fecha: fechaISO_(msg.getDate()) });
-      Logger.log(msg.getSubject() + ' -> ' + JSON.stringify(datos));
+      Logger.log(msg.getFrom() + ' | ' + msg.getSubject() + ' -> ' + JSON.stringify(leerMensaje_(msg).datos));
     });
   });
 }

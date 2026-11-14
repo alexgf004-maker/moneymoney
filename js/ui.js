@@ -60,6 +60,9 @@ export function top({ eyebrow = '', titulo, der = '', atras = false }) {
   </header>`;
 }
 
+// "CASH BACK PEDIDOS YA VISA" -> "Cash Back Pedidos Ya Visa"
+export const titulo = s => String(s || '').toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+
 export const sec = (titulo, enlace = '') => `<div class="secc"><h3>${titulo}</h3>${enlace}</div>`;
 
 export function campo(etiqueta, control, ayuda = '') {

@@ -1,6 +1,6 @@
-import { ui, esc, ic, top, vacio, montoGrande, lin, entrada } from '../ui.js';
+import { ui, esc, ic, top, vacio, montoGrande, lin, entrada, titulo } from '../ui.js';
 import { ajustes } from '../store.js';
-import { movs, resumenDeudas, deudasParaPlan, nombreBanco } from '../consultas.js';
+import { movs, resumenDeudas, deudasParaPlan, nombreBanco, tarjetasDetectadas } from '../consultas.js';
 import { simularAbono } from '../domain/prestamo.js';
 import { compararPlanes } from '../domain/deudas.js';
 import { dinero, sumar } from '../domain/dinero.js';
@@ -29,9 +29,27 @@ export function vistaDeudas() {
   `;
 }
 
+function detectadasHTML() {
+  const ds = tarjetasDetectadas();
+  if (!ds.length) return '';
+  return `<div class="secc" style="margin-top:4px"><h3>Encontradas en tus correos</h3></div>
+    <div class="card" style="margin-bottom:14px">${ds.map(x => {
+      const e = x.estado;
+      const detalle = e ? `Corte ${fechaCorta(e.fechaCorte)}${e.fechaPago ? ` · pagar el ${fechaCorta(e.fechaPago)}` : ''} · contado ${dinero(e.contado)}`
+        : `${x.compras} compra${x.compras === 1 ? '' : 's'} desde el ${fechaCorta(x.desde)}`;
+      return `<button class="row" data-accion="modal" data-tipo="tarjeta" data-pre="${esc(x.clave)}">
+        <span class="glifo g-${esc(x.banco || 'otro')}">${ic('tarjeta')}</span>
+        <span class="rt"><b>${esc(x.nombre ? titulo(x.nombre) : nombreBanco(x.banco))} ···${esc(x.ultimos4)}</b><small>${detalle}</small></span>
+        <span class="btn sm sec">${ic('plus')} Agregar</span>
+      </button>`;
+    }).join('')}</div>`;
+}
+
 function tarjetasHTML(d, hoy) {
+  const det = detectadasHTML();
+  if (!d.ts.length && det) return det + `<button class="link" data-accion="modal" data-tipo="tarjeta">${ic('plus')} Agregar otra tarjeta a mano</button>`;
   if (!d.ts.length) return `<div class="card">${vacio('tarjeta', 'Sin tarjetas', 'Agrega tus tarjetas para saber cuánto y cuándo pagar.', `<button class="btn sm" data-accion="modal" data-tipo="tarjeta">${ic('plus')} Agregar tarjeta</button>`)}</div>`;
-  return d.ts.map(({ t, e }) => {
+  return det + d.ts.map(({ t, e }) => {
     let fecha;
     if (e.alDia) fecha = `<b class="ok">Pagado</b>`;
     else if (e.vencido) fecha = `<b class="bad">Venció el ${fechaCorta(e.fechaPago)}</b>`;
@@ -49,9 +67,10 @@ function tarjetasHTML(d, hoy) {
           <div><span class="mu">${e.alDia ? `Corte del ${fechaCorta(e.ultimoCorte)}` : 'Pago de contado'}</span><b>${e.alDia ? 'Al día' : dinero(e.contadoPendiente)}</b></div>
           <div><span class="mu">Fecha límite</span>${fecha}</div>
         </div>
-        ${e.alDia ? '' : `<div class="nota">Mínimo aprox. ${dinero(e.minimoPendiente)}${e.interesSiMinimo > 0 ? ` · si pagas solo eso, unos <span class="bad">${dinero(e.interesSiMinimo)}</span> de intereses` : ''}</div>`}
+        ${e.alDia ? '' : `<div class="nota">${e.fuente === 'banco' ? 'Mínimo' : 'Mínimo aprox.'} ${dinero(e.minimoPendiente)}${e.interesSiMinimo > 0 ? ` · si pagas solo eso, unos <span class="bad">${dinero(e.interesSiMinimo)}</span> de intereses` : ''}</div>`}
       </div>
-      <small class="mu" style="margin-top:10px">Próximo corte ${fechaCorta(e.proximoCorte)} · compras desde el corte ${dinero(e.comprasCiclo)}</small>
+      ${e.fuente === 'banco' ? `<small class="mu" style="margin-top:10px">${ic('check')} Según tu estado de cuenta del ${fechaCorta(e.ultimoCorte)}</small>` : ''}
+      <small class="mu" style="margin-top:${e.fuente === 'banco' ? 4 : 10}px">Próximo corte ${fechaCorta(e.proximoCorte)} · compras desde el corte ${dinero(e.comprasCiclo)}</small>
       <div class="tc-acc">
         <button class="btn sm" data-accion="pagar" data-id="${t.id}">${ic('pago')} Registrar pago</button>
         <button class="btn sm sec" data-accion="ver-cuenta" data-id="${t.id}">${ic('movimientos')} Movimientos</button>

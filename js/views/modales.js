@@ -1,8 +1,7 @@
-import { ui, esc, ic, campo, entrada, selector, opciones, marca } from '../ui.js';
+import { ui, esc, ic, campo, entrada, selector, opciones, marca, titulo } from '../ui.js';
 import { obtener } from '../store.js';
-import { movs, opcionesPagoCon, opcionesDeuda, opcionesCuentas, BANCOS, nombreCuenta } from '../consultas.js';
+import { movs, opcionesPagoCon, opcionesDeuda, opcionesCuentas, BANCOS, nombreCuenta, estadoDe, tarjetasDetectadas } from '../consultas.js';
 import { CATEGORIAS, INGRESOS, patronSugerido } from '../domain/categorias.js';
-import { estadoTarjeta } from '../domain/tarjetas.js';
 import { estadoPrestamo, tablaPagos, partesCuota } from '../domain/prestamo.js';
 import { dinero } from '../domain/dinero.js';
 import { hoyISO, fechaCorta } from '../domain/fechas.js';
@@ -58,19 +57,26 @@ function movimiento({ id, mov: tipoInicial }) {
   return { titulo: m ? 'Movimiento' : 'Anotar', cuerpo };
 }
 
-function tarjeta({ id }) {
+// pre: clave de una tarjeta detectada en los correos ("banco|1234"), para llenar el formulario
+function tarjeta({ id, pre }) {
   const t = id ? obtener('tarjetas', id) : null;
-  const e = t ? estadoTarjeta(t, movs(), hoyISO()) : null;
+  const e = t ? estadoDe(t) : null;
+  const d = !t && pre ? tarjetasDetectadas().find(x => x.clave === pre) : null;
+  const est = d?.estado;
+  const dia = iso => (iso ? Number(iso.slice(8, 10)) : '');
+  const v = t || (d ? { banco: d.banco, ultimos4: d.ultimos4, nombre: d.nombre ? titulo(d.nombre) : '', diaCorte: dia(est?.fechaCorte), diaPago: dia(est?.fechaPago) } : {});
   const cuerpo = `<form data-form="tarjeta" data-id="${id || ''}">
-    ${campo('Banco', selector('banco', BANCOS, t?.banco || 'agricola'))}
-    ${campo('Nombre para reconocerla', entrada('nombre', t?.nombre || '', { req: true, ph: 'Ej. Visa Oro Agrícola' }))}
+    ${est ? `<div class="aviso-fila" style="margin-top:0">${ic('correo')}<span class="rt"><b style="white-space:normal">Datos tomados de tu estado de cuenta</b><small style="white-space:normal">Corte del ${fechaCorta(est.fechaCorte)} · pago de contado ${dinero(est.contado)}. Completa el límite y revisa el saldo.</small></span></div>`
+      : d ? `<div class="aviso-fila" style="margin-top:0">${ic('correo')}<span class="rt"><b style="white-space:normal">Encontrada en tus correos</b><small style="white-space:normal">Completa los datos que vienen en tu estado de cuenta.</small></span></div>` : ''}
+    ${campo('Banco', selector('banco', BANCOS, v.banco || 'agricola'))}
+    ${campo('Nombre para reconocerla', entrada('nombre', v.nombre || '', { req: true, ph: 'Ej. Visa Oro Agrícola' }))}
     <div class="fila-campos">
-      ${campo('Últimos 4 dígitos', entrada('ultimos4', t?.ultimos4 || '', { req: true, ph: '1234', extra: 'inputmode="numeric" pattern="\\d{4}" maxlength="4"' }))}
+      ${campo('Últimos 4 dígitos', entrada('ultimos4', v.ultimos4 || '', { req: true, ph: '1234', extra: 'inputmode="numeric" pattern="\\d{4}" maxlength="4"' }))}
       ${campo('Límite', entrada('limite', t?.limite ?? '', { tipo: 'number', paso: '0.01', min: 0, req: true, ph: '0.00' }))}
     </div>
     <div class="fila-campos">
-      ${campo('Día de corte', entrada('diaCorte', t?.diaCorte ?? '', { tipo: 'number', min: 1, max: 31, req: true }))}
-      ${campo('Día límite de pago', entrada('diaPago', t?.diaPago ?? '', { tipo: 'number', min: 1, max: 31, req: true }))}
+      ${campo('Día de corte', entrada('diaCorte', v.diaCorte ?? '', { tipo: 'number', min: 1, max: 31, req: true }))}
+      ${campo('Día límite de pago', entrada('diaPago', v.diaPago ?? '', { tipo: 'number', min: 1, max: 31, req: true }))}
     </div>
     <div class="fila-campos">
       ${campo('Interés anual %', entrada('tasaAnual', t?.tasaAnual ?? '', { tipo: 'number', paso: '0.01', min: 0, ph: 'Ej. 38.5' }))}
@@ -79,9 +85,9 @@ function tarjeta({ id }) {
     <small class="mu">Los últimos 4 dígitos sirven para reconocer los correos del banco. El interés y el mínimo vienen en tu estado de cuenta.</small>
     <fieldset>
       <legend>${t ? 'Saldo' : 'Cómo está hoy'}</legend>
-      ${campo('Lo que debes hoy', entrada('saldoHoy', e ? e.saldoActual : '', { tipo: 'number', paso: '0.01', req: true, ph: '0.00' }), t ? 'Cámbialo solo si no cuadra con tu banco' : '')}
+      ${campo('Lo que debes hoy', entrada('saldoHoy', e ? e.saldoActual : '', { tipo: 'number', paso: '0.01', req: true, ph: '0.00' }), t ? 'Cámbialo solo si no cuadra con tu banco' : 'Lo ves en la app de tu banco como saldo actual')}
       ${t ? '' : `
-        ${campo('Pago de contado de tu último estado de cuenta', entrada('saldoCorte', '', { tipo: 'number', paso: '0.01', min: 0, ph: 'Si no lo sabes, déjalo vacío' }))}
+        ${campo('Pago de contado de tu último estado de cuenta', entrada('saldoCorte', est ? est.contado.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, ph: 'Si no lo sabes, déjalo vacío' }))}
         ${campo('¿Cuánto ya abonaste de ese estado de cuenta?', entrada('pagadoCorte', '', { tipo: 'number', paso: '0.01', min: 0, ph: '0.00' }))}`}
     </fieldset>
     ${pie(botonBorrar('tarjetas', id))}
@@ -116,7 +122,7 @@ function pagar({ id }) {
   let rapidos = [];
   let sugerido = '';
   if (t) {
-    const e = estadoTarjeta(t, movs(), hoy);
+    const e = estadoDe(t, hoy);
     rapidos = [['Pago de contado', e.contadoPendiente], ['Mínimo aprox.', e.minimoPendiente], ['Saldo total', e.saldoActual]].filter(o => o[1] > 0);
     sugerido = e.contadoPendiente ? e.contadoPendiente.toFixed(2) : '';
   } else if (p) {
@@ -169,7 +175,11 @@ function cuenta({ id }) {
     ${campo('Nombre', entrada('nombre', c?.nombre || '', { req: true, ph: 'Ej. Ahorro Agrícola' }))}
     ${c?.tipo === 'efectivo' ? '<input type="hidden" name="tipo" value="efectivo">' : `
       ${campo('Banco', selector('banco', BANCOS, c?.banco || 'agricola'))}
-      ${campo('Últimos 4 de la tarjeta de débito', entrada('ultimos4', c?.ultimos4 || '', { ph: 'Opcional', extra: 'inputmode="numeric" maxlength="4"' }), 'Para reconocer las compras con débito en los correos')}
+      <div class="fila-campos">
+        ${campo('Últimos 4 del número de cuenta', entrada('cuenta4', c?.cuenta4 || '', { ph: 'Opcional', extra: 'inputmode="numeric" maxlength="4"' }))}
+        ${campo('Últimos 4 de la tarjeta de débito', entrada('ultimos4', c?.ultimos4 || '', { ph: 'Opcional', extra: 'inputmode="numeric" maxlength="4"' }))}
+      </div>
+      <small class="mu">Con el número de cuenta se reconoce desde dónde pagaste tus tarjetas; con la de débito, tus compras con débito.</small>
       <input type="hidden" name="tipo" value="banco">`}
     ${pie(c?.tipo === 'efectivo' ? '' : botonBorrar('cuentas', id))}
   </form>`;

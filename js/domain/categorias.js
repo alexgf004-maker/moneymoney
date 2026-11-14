@@ -28,7 +28,7 @@ export const categoria = id => TODAS.find(c => c.id === id) || CATEGORIAS[CATEGO
 
 // Comercios comunes en El Salvador. Las reglas que crea el usuario van primero.
 export const REGLAS_BASE = [
-  ['SELECTOS', 'super'], ['WALMART', 'super'], ['DESPENSA', 'super'], ['MAXI DESPENSA', 'super'], ['PRICESMART', 'super'],
+  ['UBER EATS', 'comida'], ['PEDIDOS YA', 'comida'], ['PEDIDOSYA', 'comida'], ['SELECTOS', 'super'], ['WALMART', 'super'], ['DESPENSA', 'super'], ['MAXI DESPENSA', 'super'], ['PRICESMART', 'super'],
   ['SUPER ', 'super'], ['DOLLARCITY', 'compras'],
   ['CAMPERO', 'comida'], ['PIZZA', 'comida'], ['MCDONALD', 'comida'], ['BURGER', 'comida'], ['WENDY', 'comida'],
   ['KFC', 'comida'], ['SUBWAY', 'comida'], ['STARBUCKS', 'comida'], ['RESTAURANT', 'comida'], ['PUPUS', 'comida'],

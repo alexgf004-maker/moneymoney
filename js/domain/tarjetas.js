@@ -50,14 +50,27 @@ function pagadoDesde(tarjeta, movs, corte, hoy) {
   return r2(previo + sumar(abonos));
 }
 
-export function estadoTarjeta(tarjeta, movs, hoy) {
-  const corte = ultimoCorte(tarjeta, hoy);
-  const fechaPago = fechaPagoDe(tarjeta, corte);
+// estados: los estados de cuenta del banco para esta tarjeta ({ fechaCorte, fechaPago, contado, minimo }).
+// Si hay uno del ciclo actual, se usan sus números exactos en vez de calcularlos.
+export function estadoDelCiclo(tarjeta, estados, hoy) {
+  const calculado = ultimoCorte(tarjeta, hoy);
+  const real = estados
+    .filter(e => e.fechaCorte && e.fechaCorte <= hoy && e.contado != null)
+    .sort((a, b) => b.fechaCorte.localeCompare(a.fechaCorte))[0];
+  // Si ya pasó otro corte y su estado de cuenta todavía no llega, manda el cálculo
+  return real && diasEntre(real.fechaCorte, calculado) <= 10 ? real : null;
+}
+
+export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
+  const real = estadoDelCiclo(tarjeta, estados, hoy);
+  const corte = real ? real.fechaCorte : ultimoCorte(tarjeta, hoy);
+  const fechaPago = real?.fechaPago || fechaPagoDe(tarjeta, corte);
   const saldoActual = saldoEn(tarjeta, movs, hoy);
-  const saldoCorte = Math.max(0, saldoAlCorte(tarjeta, movs, corte));
+  const saldoCorte = real ? r2(real.contado) : Math.max(0, saldoAlCorte(tarjeta, movs, corte));
   const pagado = pagadoDesde(tarjeta, movs, corte, hoy);
   const contadoPendiente = r2(Math.max(0, saldoCorte - pagado));
-  const minimo = r2(Math.min(contadoPendiente, Math.max(saldoCorte * (tarjeta.minimoPct ?? 5) / 100 - pagado, 0)));
+  const minimoBase = real && real.minimo != null ? real.minimo : saldoCorte * (tarjeta.minimoPct ?? 5) / 100;
+  const minimo = r2(Math.min(contadoPendiente, Math.max(minimoBase - pagado, 0)));
   const tasaMensual = (tarjeta.tasaAnual || 0) / 12 / 100;
   const comprasCiclo = sumar(deLaTarjeta(tarjeta, movs).filter(m => m.tipo === 'gasto' && m.fecha > corte && m.fecha <= hoy).map(m => m.monto));
   const vencido = hoy > fechaPago && contadoPendiente > 0;
@@ -66,7 +79,8 @@ export function estadoTarjeta(tarjeta, movs, hoy) {
     disponible: r2((tarjeta.limite || 0) - saldoActual),
     uso: tarjeta.limite ? saldoActual / tarjeta.limite : 0,
     ultimoCorte: corte,
-    proximoCorte: proximoCorte(tarjeta, hoy),
+    proximoCorte: real ? sumarMeses(real.fechaCorte, 1, tarjeta.diaCorte) : proximoCorte(tarjeta, hoy),
+    fuente: real ? 'banco' : 'calculado',
     fechaPago,
     diasParaPago: diasEntre(hoy, fechaPago),
     saldoCorte,

@@ -64,15 +64,21 @@ tests/              *.test.js con node --test (reglas y lector) · app.spec.js c
 - `tarjetas`: { banco, nombre, ultimos4, limite, diaCorte, diaPago, tasaAnual, minimoPct, saldoInicial, fechaSaldo,
   saldoCorteInicial, pagadoCorteInicial }
 - `prestamos`: { banco, nombre, monto, tasaAnual, plazoMeses, cuota, fechaPrimerPago }
-- `cuentas`: efectivo (fija) y cuentas de banco (opcionalmente con ultimos4 de la tarjeta de débito)
+- `cuentas`: efectivo (fija) y cuentas de banco (opcionalmente `cuenta4`, últimos 4 del número de cuenta, para saber
+  desde dónde se pagó una tarjeta, y `ultimos4` de la tarjeta de débito)
 - `movimientos`: { fecha, monto, tipo: gasto|ingreso|pago|reembolso, cuentaId, desdeId, categoriaId, comercio, nota,
   origen: manual|correo|fijo, revisar, extra (abono a capital), banco, ultimos4 }
+- `estados`: estados de cuenta leídos de los correos { banco, ultimos4, nombre, fechaCorte, fechaPago, contado, minimo }.
+  Si hay uno del ciclo actual, `estadoTarjeta` usa sus números exactos (`fuente: 'banco'`) en vez de calcularlos.
+  Los que no tienen últimos 4 (EMMA) se asignan a la única tarjeta de ese banco.
+- Tarjetas detectadas: las que aparecen en `estados` o en movimientos sin tarjeta y no están registradas
+  (`tarjetasDetectadas()` en consultas.js). Deudas las ofrece con el formulario ya lleno.
 - `reglas`: { patron, categoriaId } · `presupuestos`: { id: categoriaId, limite } · `recurrentes`: pagos fijos
 - `entrantes` y `noLeidos`: los escribe el script de Gmail
 
 ## Pendiente
 
-- Ajustar `Lector.gs` con correos reales de cada banco (por ahora usa un lector general).
+- Faltan ejemplos de correos de compra de BAC, Cuscatlán y Siman, y el estado de cuenta de Agrícola y Siman.
 - Importar estados de cuenta en PDF (se necesita un ejemplo de cada banco).
 - Clasificar con IA los comercios desconocidos (opcional).
 - Recordatorios de pago fuera de la app (por ejemplo, un correo diario desde el mismo script).

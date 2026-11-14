@@ -41,9 +41,50 @@ export const opcionesDeuda = () => [
 
 export const opcionesCuentas = () => cuentas().map(c => [c.id, c.nombre]);
 
+// Estados de cuenta de una tarjeta: por sus últimos 4, o por banco si el correo no los trae y es la única de ese banco
+export function estadosDe(t) {
+  const unica = tarjetas().filter(x => x.banco === t.banco).length === 1;
+  return lista('estados').filter(e => (e.ultimos4 ? e.ultimos4 === t.ultimos4 : unica && e.banco === t.banco));
+}
+
+export const estadoDe = (t, hoy = hoyISO()) => estadoTarjeta(t, movs(), hoy, estadosDe(t));
+
+// Tarjetas que aparecen en los correos (compras, pagos o estados de cuenta) y todavía no están registradas
+export function tarjetasDetectadas() {
+  const conocidas = new Set([...tarjetas(), ...cuentas()].flatMap(x => [x.ultimos4, x.cuenta4]).filter(Boolean));
+  const mapa = new Map();
+  const de = (banco, ultimos4) => {
+    const clave = `${banco}|${ultimos4}`;
+    if (!mapa.has(clave)) mapa.set(clave, { clave, banco, ultimos4, nombre: null, estado: null, compras: 0, desde: null });
+    return mapa.get(clave);
+  };
+  for (const m of movs()) {
+    if (m.cuentaId || !m.ultimos4 || conocidas.has(m.ultimos4)) continue;
+    const d = de(m.banco, m.ultimos4);
+    if (m.tipo === 'gasto') d.compras++;
+    if (!d.desde || m.fecha < d.desde) d.desde = m.fecha;
+  }
+  const estados = [...lista('estados')].sort((a, b) => a.fechaCorte.localeCompare(b.fechaCorte));
+  for (const e of estados) {
+    let u4 = e.ultimos4;
+    if (!u4) {
+      // Sin dígitos: si ya hay una tarjeta registrada de ese banco, el estado es de ella
+      if (tarjetas().some(t => t.banco === e.banco)) continue;
+      const delBanco = [...mapa.values()].filter(d => d.banco === e.banco);
+      if (delBanco.length !== 1) continue;
+      u4 = delBanco[0].ultimos4;
+    }
+    if (conocidas.has(u4)) continue;
+    const d = de(e.banco, u4);
+    d.estado = e;
+    d.nombre = e.nombre || d.nombre;
+  }
+  return [...mapa.values()];
+}
+
 export function resumenDeudas(hoy = hoyISO()) {
   const m = movs();
-  const ts = tarjetas().map(t => ({ t, e: estadoTarjeta(t, m, hoy) }));
+  const ts = tarjetas().map(t => ({ t, e: estadoTarjeta(t, m, hoy, estadosDe(t)) }));
   const ps = prestamos().map(p => ({ p, e: estadoPrestamo(p, m, hoy) }));
   const totalTarjetas = sumar(ts.map(x => x.e.saldoActual));
   const totalPrestamos = sumar(ps.map(x => x.e.saldo));

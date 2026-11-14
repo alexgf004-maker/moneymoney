@@ -42,13 +42,26 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
    aparece "Google no verificó esta app" → **Configuración avanzada → Ir a MoneyMoney Gmail**.
    En **Registro de ejecución** verás qué leyó de tus últimos correos del banco (no envía nada todavía).
 7. Elige **`instalar`** y pulsa **Ejecutar**. Desde ahora revisa tu correo cada 5 minutos.
+8. Elige **`importarHistorial`** y pulsa **Ejecutar** una vez: trae los últimos 60 días (compras, pagos y estados de
+   cuenta). En la app, en Deudas, aparecerán tus tarjetas encontradas en los correos para agregarlas con un toque.
 
 Los correos que ya leyó quedan con la etiqueta **MoneyMoney** en Gmail. Si un correo del banco no se entiende,
 aparece en la app en **Más → Correos del banco sin leer**.
 
+## ¿Qué lee de cada banco?
+
+| Banco | Correo | Qué saca |
+|---|---|---|
+| Banco Agrícola | Plan Alerta 365 | Compras con tarjeta |
+| Banco Agrícola | Pago de tarjeta de crédito propia | El pago (lo lee del PDF adjunto) |
+| Credicomer | Alerta monetaria | Compras con tarjeta |
+| BAC | Notificación de crédito Transfer365 | Pagos a tus tarjetas BAC |
+| Cuscatlán, BAC y EMMA | Estado de cuenta | Fecha de corte, fecha límite, pago de contado y pago mínimo exactos |
+
 ## ¿Qué permisos tiene el script?
 
-- **Gmail**: leer los correos de los bancos y ponerles la etiqueta. Solo busca remitentes de los bancos (lista en `Lector.gs`).
+- **Gmail**: leer los correos de los bancos y ponerles la etiqueta. Solo busca remitentes y asuntos de bancos (lista en `Lector.gs`).
+- **Drive (solo archivos que crea el script)**: para leer el texto de los PDF de comprobantes. Crea un archivo temporal y lo borra al momento.
 - **Conectarse a otros servicios**: solo para escribir en tu Firebase.
 - Corre en tu cuenta de Google, y nadie más tiene acceso a él ni a tus correos.
 
