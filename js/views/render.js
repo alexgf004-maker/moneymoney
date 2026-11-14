@@ -1,4 +1,4 @@
-import { ui } from '../ui.js';
+import { ui, ic } from '../ui.js';
 import { lista } from '../store.js';
 import { vistaInicio } from './inicio.js';
 import { vistaMovimientos } from './movimientos.js';
@@ -7,40 +7,35 @@ import { vistaMas } from './mas.js';
 import { vistaModal } from './modales.js';
 
 const VISTAS = {
-  inicio: ['Inicio', '🏠', vistaInicio],
-  movimientos: ['Movimientos', '🧾', vistaMovimientos],
-  deudas: ['Deudas', '💳', vistaDeudas],
-  mas: ['Más', '⚙️', vistaMas],
+  inicio: ['Inicio', 'inicio', vistaInicio],
+  movimientos: ['Movimientos', 'movimientos', vistaMovimientos],
+  deudas: ['Deudas', 'deudas', vistaDeudas],
+  mas: ['Más', 'mas', vistaMas],
 };
 
 export function montar() {
-  document.getElementById('app').innerHTML = `
-    <header class="cabecera"><h1>MoneyMoney</h1><span id="estado-nube" class="tenue"></span></header>
-    <main id="vista"></main>
-    <nav class="nav" id="nav"></nav>
-    <div id="modal"></div>`;
+  document.getElementById('app').innerHTML = `<main id="vista"></main><nav class="nav" id="nav" aria-label="Secciones"></nav><div id="modal"></div>`;
 }
 
 export function renderVista() {
-  const vista = document.getElementById('vista');
   const [, , fn] = VISTAS[ui.vista] || VISTAS.inicio;
-  vista.innerHTML = fn();
-  const revisar = lista('movimientos').filter(m => m.revisar).length;
-  const item = (k, [nombre, icono]) => `<button class="nav-item ${ui.vista === k ? 'activo' : ''}" data-accion="ir" data-vista="${k}">
-    <span class="nav-icono">${icono}${k === 'movimientos' && revisar ? `<i class="punto">${revisar}</i>` : ''}</span><span>${nombre}</span></button>`;
-  const entradas = Object.entries(VISTAS);
-  document.getElementById('nav').innerHTML = `
-    ${entradas.slice(0, 2).map(([k, v]) => item(k, v)).join('')}
-    <button class="nav-mas" data-accion="modal" data-tipo="movimiento" aria-label="Anotar gasto">＋</button>
-    ${entradas.slice(2).map(([k, v]) => item(k, v)).join('')}`;
-  document.getElementById('estado-nube').textContent = { conectado: '☁️ En la nube', 'sin-sesion': 'Sin sesión', cargando: '…', 'sin-configurar': '📱 Solo en este teléfono' }[ui.nube] || '';
+  document.getElementById('vista').innerHTML = fn();
+  const revisar = lista('movimientos').some(m => m.revisar);
+  const item = (k, [nombre, icono]) => `<button class="ni ${ui.vista === k ? 'on' : ''}" data-accion="ir" data-vista="${k}" ${ui.vista === k ? 'aria-current="page"' : ''}>
+    ${ic(icono)}${k === 'movimientos' && revisar ? '<span class="punto"></span>' : ''}<span>${nombre}</span></button>`;
+  const e = Object.entries(VISTAS);
+  document.getElementById('nav').innerHTML = `${e.slice(0, 2).map(([k, v]) => item(k, v)).join('')}
+    <button class="fab" data-accion="modal" data-tipo="movimiento" aria-label="Anotar movimiento">${ic('plus')}</button>
+    ${e.slice(2).map(([k, v]) => item(k, v)).join('')}`;
 }
 
 export function renderModal() {
   const cont = document.getElementById('modal');
   cont.innerHTML = vistaModal();
   document.body.classList.toggle('con-modal', !!ui.modal);
-  cont.querySelector('[autofocus]')?.focus();
+  // En un movimiento nuevo el teclado se abre directo en el monto
+  const monto = cont.querySelector('[data-enfocar]');
+  if (monto && !monto.value) monto.focus();
 }
 
 export function render() {

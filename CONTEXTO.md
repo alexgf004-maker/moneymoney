@@ -18,10 +18,25 @@ El objetivo es tener claro cuánto gasta, no pagar intereses de más y salir de 
   evita duplicados.
 - **Los pagos a tarjetas o préstamos no son gasto**: el gasto se cuenta cuando se hace la compra.
 
+## Diseño (opción C "Grafito y oro", elegida el 14 nov 2026 entre 3 propuestas)
+
+Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, NetTracker). No cambiarlas sin preguntar:
+- **Para el celular.** En PC solo se ve centrada con ancho de teléfono (máx. 520 px); no hay menú lateral.
+- **Una sola tarjeta premium por pantalla** (`.pc`: degradado grafito con círculo dorado). Todo lo demás es plano (`.card`, `.tc`).
+- **Números grandes en peso 500**, nunca 800, con los centavos más pequeños (`montoGrande()`). Mucho aire entre secciones.
+- **Una sola fuente:** Plus Jakarta Sans, con cifras tabulares.
+- **Sin emojis en ningún archivo** (`.js`, `.gs`, `.css`, `index.html`) ni en la interfaz. Los íconos son de Lucide:
+  `ic('nombre')` en las vistas. Para agregar uno, se suma a `tools/gen-icons.cjs` y se corre `npm run icons`.
+  Hay una prueba que falla si aparece un emoji (`tests/sin-emojis.test.js` y `tests/app.spec.js`).
+- **Ventanas:** hoja que sube desde abajo (`.hoja`). Las opciones con ícono (tipo, categoría) son radios mostrados como tarjetas (`opciones()`).
+- **Tema** claro, oscuro o automático: `data-tema` en `<html>`, elegido en Más > Apariencia y guardado en el teléfono.
+- **Propuestas de diseño:** siempre 3 opciones con imágenes, nunca solo texto.
+- Las piezas están documentadas al inicio de `css/styles.css`; antes de crear estilos nuevos, reusar las que existen.
+
 ## Estructura
 
 ```
-index.html · manifest.webmanifest · sw.js · css/styles.css · icons/
+index.html · manifest.webmanifest · sw.js · css/styles.css · css/icons.css (generado) · icons/ · tools/gen-icons.cjs
 js/
   main.js           Arranque, toques (data-accion), formularios (data-form), procesos automáticos
   store.js          Datos: localStorage + espejo en Firebase
@@ -41,7 +56,7 @@ js/
     entrantes.js    De correo a movimiento
   views/            Funciones que devuelven HTML
 apps-script/        Script de Gmail (Codigo.gs, Lector.gs, appsscript.json) + guía de configuración
-tests/              node --test
+tests/              *.test.js con node --test (reglas y lector) · app.spec.js con Playwright (la app en tamaño de celular)
 ```
 
 ## Modelo de datos (colecciones)

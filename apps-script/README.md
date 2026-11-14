@@ -7,7 +7,7 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
 1. En GitHub, en el repositorio `moneymoney`: **Settings → Pages**.
 2. En "Branch" elige `main` y la carpeta `/ (root)`, y guarda.
 3. En un par de minutos la app queda en `https://alexgf004-maker.github.io/moneymoney/`.
-4. Ábrela en Chrome en tu Android → menú ⋮ → **Agregar a pantalla principal**.
+4. Ábrela en Chrome en tu Android → menú de los tres puntos → **Agregar a pantalla principal**.
 
 ## 2. Crear el proyecto de Firebase
 
@@ -17,7 +17,7 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
 4. En la pestaña **Reglas** pega el contenido de `database.rules.json` (de este repositorio) y **Publica**.
 5. **Compilación → Authentication → Comenzar → Google** → actívalo y guarda.
 6. En **Authentication → Configuración → Dominios autorizados** agrega `alexgf004-maker.github.io`.
-7. **Configuración del proyecto (⚙️) → Tus apps → Web (</>)** → registra la app con el nombre `moneymoney` (sin Hosting).
+7. **Configuración del proyecto (ícono de engranaje) → Tus apps → Web (</>)** → registra la app con el nombre `moneymoney` (sin Hosting).
    Copia el objeto `firebaseConfig` que aparece.
 8. Pásale ese objeto a Claude, o pégalo tú en `js/config.js` en lugar de `null`:
    ```js
@@ -31,8 +31,8 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
 
 1. Entra a <https://script.google.com> con la misma cuenta → **Proyecto nuevo** → nómbralo `MoneyMoney Gmail`.
 2. Borra lo que trae `Código.gs` y pega el contenido de `apps-script/Codigo.gs`.
-3. Agrega un archivo (＋ → Secuencia de comandos) llamado `Lector` y pega `apps-script/Lector.gs`.
-4. **Configuración del proyecto (⚙️)**:
+3. Agrega un archivo (botón + y luego "Secuencia de comandos") llamado `Lector` y pega `apps-script/Lector.gs`.
+4. **Configuración del proyecto (ícono de engranaje)**:
    - Marca "Mostrar el archivo de manifiesto appsscript.json en el editor".
    - En **Propiedades de la secuencia de comandos** agrega:
      - `FIREBASE_URL` → la `databaseURL` de tu config (ej. `https://moneymoney-xxxx-default-rtdb.firebaseio.com`)

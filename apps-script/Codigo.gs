@@ -2,9 +2,9 @@
 // busca los correos de alerta de los bancos, los lee (Lector.gs) y deja cada compra en Firebase,
 // en usuarios/{UID}/entrantes. La app los toma de ahí, les pone tarjeta y categoría.
 //
-// Configuración (Proyecto → Configuración → Propiedades del script):
+// Configuración (Proyecto -> Configuración -> Propiedades del script):
 //   FIREBASE_URL  https://TU-PROYECTO-default-rtdb.firebaseio.com
-//   UID           el código que muestra la app en Más → Conexión con Gmail
+//   UID           el código que muestra la app en Más -> Conexión con Gmail
 //
 // Pasos: ver apps-script/README.md. Después de configurar, ejecutar `instalar` una vez.
 
@@ -98,7 +98,7 @@ function probar() {
   GmailApp.search(consulta_(), 0, 20).forEach(function (hilo) {
     hilo.getMessages().forEach(function (msg) {
       var datos = leerCorreo({ de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody(), fecha: fechaISO_(msg.getDate()) });
-      Logger.log(msg.getSubject() + ' → ' + JSON.stringify(datos));
+      Logger.log(msg.getSubject() + ' -> ' + JSON.stringify(datos));
     });
   });
 }

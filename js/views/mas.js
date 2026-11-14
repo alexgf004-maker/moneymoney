@@ -1,117 +1,171 @@
-import { ui, esc, barra, vacioMsg, entrada } from '../ui.js';
-import { lista } from '../store.js';
+import { ui, esc, ic, tile, top, vacio, lin, entrada, montoGrande, temaGuardado } from '../ui.js';
+import { lista, ajustes } from '../store.js';
 import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco } from '../consultas.js';
 import { CATEGORIAS, categoria } from '../domain/categorias.js';
-import { estadoPresupuestos, proximaFechaRecurrente } from '../domain/resumen.js';
+import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
 import { hoyISO, mesDe, nombreMes, fechaCorta } from '../domain/fechas.js';
-import { FIREBASE } from '../config.js';
+
+const SUBS = {
+  presupuesto: ['Presupuesto', presupuesto],
+  fijos: ['Pagos fijos', fijos],
+  cuentas: ['Cuentas y efectivo', cuentasHTML],
+  reglas: ['Reglas de categorías', reglasHTML],
+  conexion: ['Conexión con Gmail', conexion],
+  noleidos: ['Correos sin leer', noLeidos],
+  apariencia: ['Apariencia', apariencia],
+  respaldo: ['Respaldo', respaldo],
+};
 
 export function vistaMas() {
-  return [presupuestos(), fijos(), conexion(), noLeidos(), cuentasHTML(), reglasHTML(), respaldo()].join('');
+  const sub = SUBS[ui.sub];
+  if (sub) return top({ eyebrow: 'Más', titulo: sub[0], atras: true }) + sub[1]();
+  const n = lista('noLeidos').length;
+  const fila = (s, icono, titulo, detalle) => `<button class="row" data-accion="sub" data-sub="${s}">${tile(icono)}<span class="rt"><b>${titulo}</b><small>${detalle}</small></span><span class="mu">${ic('chevron-right')}</span></button>`;
+  const conectado = ui.nube === 'conectado';
+  return `
+    ${top({ eyebrow: 'Ajustes y herramientas', titulo: 'Más' })}
+    <div class="grupo-t">Tu dinero</div>
+    <div class="card">
+      ${fila('presupuesto', 'objetivo', 'Presupuesto', 'Límites por categoría y alertas')}
+      ${fila('fijos', 'repetir', 'Pagos fijos', `${recurrentes().length || 'Ninguno'} · se anotan solos cada mes`)}
+      ${fila('cuentas', 'cartera', 'Cuentas y efectivo', `${cuentas().length} cuenta${cuentas().length > 1 ? 's' : ''}`)}
+      ${fila('reglas', 'regla', 'Reglas de categorías', `${reglas().length} propia${reglas().length === 1 ? '' : 's'} · más los comercios comunes`)}
+    </div>
+    <div class="grupo-t">Automatización</div>
+    <div class="card">
+      ${fila('conexion', conectado ? 'nube' : 'correo', 'Conexión con Gmail', conectado ? `Conectado como ${esc(ui.usuario?.correo || '')}` : 'Registra solas tus compras con tarjeta')}
+      ${n ? fila('noleidos', 'bandeja', 'Correos sin leer', `${n} correo${n > 1 ? 's' : ''} del banco por revisar`) : ''}
+    </div>
+    <div class="grupo-t">App</div>
+    <div class="card">
+      ${fila('apariencia', 'paleta', 'Apariencia', { auto: 'Automática', claro: 'Clara', oscuro: 'Oscura' }[temaGuardado()])}
+      ${fila('respaldo', 'base', 'Respaldo', 'Descargar o restaurar tus datos')}
+    </div>
+  `;
 }
 
-function presupuestos() {
+function presupuesto() {
   const hoy = hoyISO();
   const mes = mesDe(hoy);
   const limites = Object.fromEntries(lista('presupuestos').map(p => [p.id, p.limite]));
   const estado = Object.fromEntries(estadoPresupuestos(limites, movs(), mes, hoy).map(e => [e.categoriaId, e]));
   const total = sumar(Object.values(limites));
-  return `<section class="bloque" id="presupuestos">
-    <div class="bloque-titulo"><h2>Presupuesto mensual</h2><span class="tenue">${nombreMes(mes)}</span></div>
-    <p class="tenue">Pon un límite a las categorías que quieras controlar. Te avisa al llegar al 80% o si vas a ritmo de pasarte.${total ? ` Total: <b>${dinero(total)}</b>.` : ''}</p>
-    ${CATEGORIAS.filter(c => c.id !== 'comisiones').map(c => {
+  const gastadoEnLimitadas = sumar(Object.values(estado).map(e => e.gastado));
+  return `
+    <section class="pc">
+      <div class="pc-top"><span class="pc-lbl">Presupuesto de ${nombreMes(mes).split(' ')[0]}</span>${total ? `<span class="badge">Gastado ${dinero(gastadoEnLimitadas)}</span>` : ''}</div>
+      <div class="big">${total ? montoGrande(dinero(total)) : '—'}</div>
+      ${total ? `<div class="bar ${gastadoEnLimitadas > total ? 'pasado' : ''}"><span style="width:${Math.min(100, gastadoEnLimitadas / total * 100).toFixed(1)}%"></span></div>
+        <div class="pc-foot"><span>${(gastadoEnLimitadas / total * 100).toFixed(0)}% usado</span><span>${gastadoEnLimitadas > total ? `Te pasaste ${dinero(gastadoEnLimitadas - total)}` : `Quedan ${dinero(total - gastadoEnLimitadas)}`}</span></div>`
+        : `<div class="pc-sub">Pon un límite a las categorías que quieras cuidar. Te avisa al llegar al 80% o si vas a ritmo de pasarte.</div>`}
+    </section>
+    <div class="secc"><h3>Límite por categoría</h3><span class="mu" style="font-size:12px">Gasto total del mes ${dinero(totalGastado(movs(), mes))}</span></div>
+    <div class="card">${CATEGORIAS.filter(c => c.id !== 'comisiones').map(c => {
       const e = estado[c.id];
-      return `<div class="fila-pres">
-        <div class="fila-pres-top">
-          <span>${c.icono} ${esc(c.nombre)}</span>
-          <span class="pres-limite">$ ${entrada('', limites[c.id] || '', { tipo: 'number', min: 0, paso: 5, ph: 'Sin límite', extra: `data-presupuesto="${c.id}" class="corto"` })}</span>
-        </div>
-        ${e ? `${barra(e.pct, e.nivel)}<small class="tenue">${dinero(e.gastado)} gastado · ${e.disponible >= 0 ? `quedan ${dinero(e.disponible)}` : `te pasaste ${dinero(-e.disponible)}`}</small>` : ''}
+      return `<div class="pres-fila">
+        <div class="pres-top">${tile(c.icono, '', `color:${c.color}`)}<span class="rt"><b>${esc(c.nombre)}</b></span>
+          <span class="pres-in">$${entrada('', limites[c.id] || '', { tipo: 'number', min: 0, paso: 5, ph: 'Sin límite', extra: `data-presupuesto="${c.id}" aria-label="Límite de ${esc(c.nombre)}"` })}</span></div>
+        ${e ? `${lin(e.pct, e.nivel === 'excedido' ? 'bad' : e.nivel === 'alerta' ? 'warn' : 'ok')}<small class="mu">${dinero(e.gastado)} gastado · ${e.disponible >= 0 ? `quedan ${dinero(e.disponible)}` : `te pasaste ${dinero(-e.disponible)}`}</small>` : ''}
       </div>`;
-    }).join('')}
-  </section>`;
+    }).join('')}</div>`;
 }
 
 function fijos() {
   const hoy = hoyISO();
   const rs = recurrentes();
-  return `<section class="bloque" id="fijos">
-    <div class="bloque-titulo"><h2>Pagos fijos del mes</h2><button class="enlace" data-accion="modal" data-tipo="recurrente">＋ Agregar</button></div>
-    <p class="tenue">Netflix, teléfono, internet, la cuota del préstamo, tu salario… Se anotan solos el día que toca.</p>
-    ${rs.length ? `<div class="lista">${rs.map(r => {
-      const c = r.tipo === 'pago' ? { icono: '💸' } : categoria(r.categoriaId);
-      return `<button class="fila ${r.activo === false ? 'apagado' : ''}" data-accion="modal" data-tipo="recurrente" data-id="${r.id}">
-        <span class="fila-icono">${c.icono}</span>
-        <span class="fila-texto"><b>${esc(r.nombre)}</b><small>Día ${r.dia} · ${esc(nombreCuenta(r.cuentaId))}${r.activo === false ? ' · pausado' : ` · próximo ${fechaCorta(proximaFechaRecurrente(r, hoy))}`}</small></span>
-        <span class="fila-monto ${r.tipo === 'ingreso' ? 'bueno' : ''}">${r.tipo === 'ingreso' ? '+' : ''}${dinero(r.monto)}</span>
+  return `
+    <p class="mu" style="margin:0 4px 14px">Netflix, internet, teléfono, la cuota del préstamo o tu salario: se anotan solos el día que toca.</p>
+    <div class="card">${rs.length ? rs.map(r => {
+      const c = r.tipo === 'pago' ? { icono: 'pago' } : categoria(r.categoriaId);
+      return `<button class="row ${r.activo === false ? 'apagado' : ''}" data-accion="modal" data-tipo="recurrente" data-id="${r.id}">
+        ${tile(c.icono, r.tipo === 'ingreso' ? 'ok' : '')}
+        <span class="rt"><b>${esc(r.nombre)}</b><small>Día ${r.dia} · ${esc(nombreCuenta(r.cuentaId))}${r.activo === false ? ' · pausado' : ` · próximo ${fechaCorta(proximaFechaRecurrente(r, hoy))}`}</small></span>
+        <span class="amt ${r.tipo === 'ingreso' ? 'ok' : ''}">${r.tipo === 'ingreso' ? '+' : ''}${dinero(r.monto)}</span>
       </button>`;
-    }).join('')}</div>` : ''}
-  </section>`;
+    }).join('') : vacio('repetir', 'Sin pagos fijos', 'Agrega lo que pagas o recibes cada mes.')}</div>
+    <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="recurrente">${ic('plus')} Agregar pago fijo</button>`;
+}
+
+function cuentasHTML() {
+  return `
+    <p class="mu" style="margin:0 4px 14px">Desde dónde pagas lo que no va a tarjeta de crédito. Si agregas los últimos 4 de tu tarjeta de débito, también se reconocen sus correos.</p>
+    <div class="card">${cuentas().map(c => `<button class="row" data-accion="modal" data-tipo="cuenta" data-id="${c.id}">
+      ${tile(c.tipo === 'efectivo' ? 'billete' : 'cartera')}
+      <span class="rt"><b>${esc(c.nombre)}</b><small>${c.tipo === 'efectivo' ? 'Efectivo' : esc(nombreBanco(c.banco))}${c.ultimos4 ? ` · débito ···${esc(c.ultimos4)}` : ''}</small></span>
+      <span class="mu">${ic('chevron-right')}</span>
+    </button>`).join('')}</div>
+    <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="cuenta">${ic('plus')} Agregar cuenta</button>`;
+}
+
+function reglasHTML() {
+  const rs = reglas().sort((a, b) => a.patron.localeCompare(b.patron));
+  return `
+    <p class="mu" style="margin:0 4px 14px">Si el nombre del comercio contiene el texto, se le pone esa categoría. Los comercios comunes (Selectos, Walmart, Puma, Netflix…) ya se reconocen solos.</p>
+    <div class="card">${rs.length ? rs.map(r => {
+      const c = categoria(r.categoriaId);
+      return `<button class="row" data-accion="modal" data-tipo="regla" data-id="${r.id}">${tile(c.icono, '', `color:${c.color}`)}<span class="rt"><b>${esc(r.patron)}</b><small>${esc(c.nombre)}</small></span><span class="mu">${ic('chevron-right')}</span></button>`;
+    }).join('') : vacio('regla', 'Sin reglas propias', 'Al corregir la categoría de un movimiento puedes guardarla como regla.')}</div>
+    <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="regla">${ic('plus')} Agregar regla</button>`;
 }
 
 function conexion() {
   let cuerpo;
   if (ui.nube === 'sin-configurar') {
-    cuerpo = `<p>La app está guardando todo <b>solo en este teléfono</b>. Para que las compras con tarjeta se anoten solas desde tus correos, hay que configurar la nube (Firebase) y el script de Gmail. Los pasos están en <code>apps-script/README.md</code> del repositorio.</p>`;
+    cuerpo = `<div class="row" style="border:0">${tile('telefono')}<span class="rt"><b style="white-space:normal">Guardando solo en este teléfono</b><small style="white-space:normal">Para que las compras con tarjeta se anoten solas hay que configurar la nube (Firebase) y el script de Gmail. Los pasos están en apps-script/README.md del repositorio.</small></span></div>`;
   } else if (ui.nube === 'cargando') {
-    cuerpo = '<p class="tenue">Conectando…</p>';
+    cuerpo = `<div class="row" style="border:0">${tile('nube')}<span class="rt"><b>Conectando…</b></span></div>`;
   } else if (ui.nube === 'sin-sesion') {
-    cuerpo = `<p>Inicia sesión con tu cuenta de Google para guardar en la nube y recibir los movimientos de Gmail.</p>
-      <button class="boton" data-accion="entrar">Entrar con Google</button>`;
+    cuerpo = `<div class="row" style="border:0">${tile('nube')}<span class="rt"><b>Inicia sesión</b><small style="white-space:normal">Con tu cuenta de Google, para guardar en la nube y recibir las compras de Gmail.</small></span></div>
+      <button class="btn ancho" data-accion="entrar">${ic('entrar')} Entrar con Google</button>`;
   } else {
-    cuerpo = `<p>✅ Conectado como <b>${esc(ui.usuario?.correo)}</b>. Tus datos se guardan en la nube.</p>
-      <div class="campo"><span>Tu código para el script de Gmail (UID)</span>
-        <div class="copiar"><code>${esc(ui.usuario?.uid)}</code><button class="boton chico secundario" data-accion="copiar" data-texto="${esc(ui.usuario?.uid)}">Copiar</button></div>
-      </div>
-      <button class="enlace" data-accion="salir">Cerrar sesión</button>`;
+    cuerpo = `<div class="row">${tile('check', 'ok')}<span class="rt"><b>Conectado</b><small>${esc(ui.usuario?.correo)}</small></span></div>
+      <label class="campo"><span>Tu código para el script de Gmail (UID)</span>
+        <div class="copiar"><code>${esc(ui.usuario?.uid)}</code><button class="ib" data-accion="copiar" data-texto="${esc(ui.usuario?.uid)}" aria-label="Copiar">${ic('copiar')}</button></div></label>
+      <button class="link bad" data-accion="salir">${ic('salir')} Cerrar sesión</button>`;
   }
-  return `<section class="bloque" id="conexion"><h2>Conexión con Gmail</h2>${cuerpo}</section>`;
+  return `<div class="card pad">${cuerpo}</div>
+    <div class="secc"><h3>Cómo funciona</h3></div>
+    <div class="card"><ol class="pasos">
+      <li><span class="rt"><b style="white-space:normal">El banco te manda un correo por cada compra</b></span></li>
+      <li><span class="rt"><b style="white-space:normal">Un script en tu Gmail lo lee cada 5 minutos</b><small>Solo los correos de tus bancos</small></span></li>
+      <li><span class="rt"><b style="white-space:normal">La compra aparece aquí con su tarjeta y categoría</b><small>Lo dudoso queda marcado para revisar</small></span></li>
+    </ol></div>`;
 }
 
 function noLeidos() {
   const nl = lista('noLeidos').sort((a, b) => b.fecha.localeCompare(a.fecha));
-  if (!nl.length) return '';
-  return `<section class="bloque" id="noleidos">
-    <div class="bloque-titulo"><h2>Correos del banco sin leer</h2><button class="enlace" data-accion="borrar-noleidos">Limpiar</button></div>
-    <p class="tenue">Llegaron de un banco pero no parecen una compra, o el formato es nuevo. Si alguno sí era una compra, anótala con ＋ y pásame el ejemplo para mejorar el lector.</p>
-    <div class="lista">${nl.slice(0, 20).map(n => `<div class="fila"><span class="fila-texto"><b>${esc(n.asunto)}</b><small>${fechaCorta(n.fecha)} · ${esc(n.de)}</small><small class="tenue">${esc((n.texto || '').slice(0, 160))}…</small></span></div>`).join('')}</div>
-  </section>`;
+  return `
+    <p class="mu" style="margin:0 4px 14px">Llegaron de un banco pero no parecen una compra, o tienen un formato nuevo. Si alguno sí era una compra, anótala con + y comparte el ejemplo para mejorar el lector.</p>
+    <div class="card">${nl.length ? nl.slice(0, 30).map(n => `<div class="row">${tile('correo')}<span class="rt"><b>${esc(n.asunto)}</b><small>${fechaCorta(n.fecha)} · ${esc(n.de)}</small><small style="white-space:normal">${esc((n.texto || '').slice(0, 160))}…</small></span></div>`).join('') : vacio('bandeja', 'Nada pendiente')}</div>
+    ${nl.length ? `<button class="btn sec ancho" style="margin-top:14px" data-accion="borrar-noleidos">${ic('borrar')} Limpiar lista</button>` : ''}`;
 }
 
-function cuentasHTML() {
-  return `<section class="bloque" id="cuentas">
-    <div class="bloque-titulo"><h2>Cuentas y efectivo</h2><button class="enlace" data-accion="modal" data-tipo="cuenta">＋ Agregar</button></div>
-    <p class="tenue">Desde dónde pagas lo que no es con tarjeta de crédito (cuenta de ahorro, débito, efectivo).</p>
-    <div class="lista">${cuentas().map(c => `<button class="fila" data-accion="modal" data-tipo="cuenta" data-id="${c.id}">
-      <span class="fila-icono">${c.tipo === 'efectivo' ? '💵' : '🏧'}</span>
-      <span class="fila-texto"><b>${esc(c.nombre)}</b><small>${c.tipo === 'efectivo' ? 'Efectivo' : esc(nombreBanco(c.banco))}${c.ultimos4 ? ` ···${esc(c.ultimos4)}` : ''}</small></span>
-    </button>`).join('')}</div>
-  </section>`;
-}
-
-function reglasHTML() {
-  const rs = reglas().sort((a, b) => a.patron.localeCompare(b.patron));
-  return `<section class="bloque" id="reglas">
-    <div class="bloque-titulo"><h2>Reglas de categorías</h2><button class="enlace" data-accion="modal" data-tipo="regla">＋ Agregar</button></div>
-    <p class="tenue">Cuando corriges la categoría de un movimiento puedes guardarla como regla, y la app la aplica sola a los siguientes de ese comercio.</p>
-    ${rs.length ? `<div class="lista">${rs.map(r => {
-      const c = categoria(r.categoriaId);
-      return `<button class="fila" data-accion="modal" data-tipo="regla" data-id="${r.id}">
-        <span class="fila-icono">${c.icono}</span><span class="fila-texto"><b>“${esc(r.patron)}”</b><small>→ ${esc(c.nombre)}</small></span>
-      </button>`;
-    }).join('')}</div>` : vacioMsg('Sin reglas propias', 'Ya se reconocen solos los comercios más comunes (Selectos, Walmart, Puma, Netflix…).')}
-  </section>`;
+function apariencia() {
+  const t = temaGuardado();
+  const op = (v, icono, texto) => `<button class="${t === v ? 'on' : ''}" data-accion="tema" data-tema="${v}">${ic(icono)}${texto}</button>`;
+  return `<div class="card pad">
+      <b>Tema</b>
+      <small class="mu" style="margin-bottom:12px">Automático sigue el modo de tu teléfono.</small>
+      <div class="temas">${op('auto', 'auto', 'Automático')}${op('claro', 'sol', 'Claro')}${op('oscuro', 'luna', 'Oscuro')}</div>
+    </div>
+    <div class="card pad">
+      <label class="campo" style="margin:0"><span>¿Cómo te llamas?</span>${entrada('', ajustes().nombre || '', { ph: 'Para saludarte en el inicio', extra: 'data-ajuste="nombre"' })}</label>
+    </div>`;
 }
 
 function respaldo() {
-  return `<section class="bloque" id="respaldo">
-    <h2>Respaldo</h2>
-    <p class="tenue">${FIREBASE ? 'Con la nube conectada tus datos ya están respaldados. ' : ''}También puedes descargar una copia en un archivo y restaurarla después.</p>
-    <div class="acciones">
-      <button class="boton chico secundario" data-accion="exportar">Descargar copia</button>
-      <label class="boton chico secundario">Restaurar copia<input type="file" accept="application/json,.json" data-accion-archivo="importar" hidden></label>
+  return `<div class="card pad">
+      <b>Copia de tus datos</b>
+      <small class="mu" style="margin-bottom:14px">${ui.nube === 'conectado' ? 'Con la nube conectada tus datos ya están respaldados. ' : ''}Descarga un archivo con todo y restáuralo cuando quieras.</small>
+      <div class="tc-acc">
+        <button class="btn sm" data-accion="exportar">${ic('descargar')} Descargar</button>
+        <label class="btn sm sec">${ic('subir')} Restaurar<input type="file" accept="application/json,.json" data-accion-archivo="importar" hidden></label>
+      </div>
     </div>
-    <button class="enlace malo" data-accion="borrar-todo">Borrar todos los datos</button>
-  </section>`;
+    <div class="card pad">
+      <b class="bad">Borrar todos los datos</b>
+      <small class="mu" style="margin-bottom:14px">Tarjetas, préstamos, movimientos y ajustes. No se puede deshacer.</small>
+      <button class="btn sm peligro" data-accion="borrar-todo">${ic('borrar')} Borrar todo</button>
+    </div>`;
 }

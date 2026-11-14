@@ -1,10 +1,10 @@
 // Red primero (así nunca se queda una versión vieja) y lo guardado solo sin señal.
 // Firebase y otros sitios van directo a la red.
-const CACHE = 'moneymoney-v1';
+const CACHE = 'moneymoney-v2';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html', 'css/styles.css', 'manifest.webmanifest'])).catch(() => {}));
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./', 'index.html', 'css/styles.css', 'css/icons.css', 'manifest.webmanifest'])).catch(() => {}));
 });
 
 self.addEventListener('activate', e => {

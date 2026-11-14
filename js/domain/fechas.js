@@ -20,7 +20,7 @@ export function diasDelMes(anio, mes0) {
   return new Date(anio, mes0 + 1, 0).getDate();
 }
 
-// El día pedido dentro de un mes; si el mes es más corto, el último día (día 31 en febrero → 28/29)
+// El día pedido dentro de un mes; si el mes es más corto, el último día (día 31 en febrero -> 28/29)
 export function fechaConDia(anio, mes0, dia) {
   const a = anio + Math.floor(mes0 / 12);
   const m = ((mes0 % 12) + 12) % 12;

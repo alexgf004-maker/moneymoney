@@ -8,7 +8,7 @@
 //   del primer corte, porque no tiene los movimientos de antes.
 //
 // Movimientos que afectan la tarjeta (cuentaId = id de la tarjeta):
-//   gasto → aumenta la deuda · pago y reembolso → la bajan
+//   gasto -> aumenta la deuda · pago y reembolso -> la bajan
 
 import { deISO, fechaConDia, sumarMeses, diasEntre } from './fechas.js';
 import { r2, sumar } from './dinero.js';

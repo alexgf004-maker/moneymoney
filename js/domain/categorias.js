@@ -1,25 +1,26 @@
 // Categorías y clasificación automática por nombre del comercio.
 
+// icono: nombre del ícono en css/icons.css (ic-cat-*)
 export const CATEGORIAS = [
-  { id: 'super', nombre: 'Supermercado', icono: '🛒', color: '#16a34a' },
-  { id: 'comida', nombre: 'Restaurantes', icono: '🍔', color: '#ea580c' },
-  { id: 'gasolina', nombre: 'Gasolina', icono: '⛽', color: '#ca8a04' },
-  { id: 'transporte', nombre: 'Transporte', icono: '🚗', color: '#0891b2' },
-  { id: 'servicios', nombre: 'Servicios (luz, agua, internet)', icono: '💡', color: '#2563eb' },
-  { id: 'suscripciones', nombre: 'Suscripciones', icono: '📺', color: '#7c3aed' },
-  { id: 'salud', nombre: 'Salud y farmacia', icono: '💊', color: '#dc2626' },
-  { id: 'compras', nombre: 'Compras y tiendas', icono: '🛍️', color: '#db2777' },
-  { id: 'hogar', nombre: 'Hogar', icono: '🏠', color: '#65a30d' },
-  { id: 'entretenimiento', nombre: 'Salidas y entretenimiento', icono: '🎉', color: '#c026d3' },
-  { id: 'educacion', nombre: 'Educación', icono: '📚', color: '#0d9488' },
-  { id: 'efectivo', nombre: 'Retiro de efectivo', icono: '💵', color: '#4b5563' },
-  { id: 'comisiones', nombre: 'Intereses y comisiones', icono: '🏦', color: '#991b1b' },
-  { id: 'otros', nombre: 'Otros', icono: '📦', color: '#6b7280' },
+  { id: 'super', nombre: 'Supermercado', icono: 'cat-super', color: '#16a34a' },
+  { id: 'comida', nombre: 'Restaurantes', icono: 'cat-comida', color: '#ea580c' },
+  { id: 'gasolina', nombre: 'Gasolina', icono: 'cat-gasolina', color: '#ca8a04' },
+  { id: 'transporte', nombre: 'Transporte', icono: 'cat-transporte', color: '#0891b2' },
+  { id: 'servicios', nombre: 'Servicios', icono: 'cat-servicios', color: '#2563eb' },
+  { id: 'suscripciones', nombre: 'Suscripciones', icono: 'cat-suscripciones', color: '#7c3aed' },
+  { id: 'salud', nombre: 'Salud', icono: 'cat-salud', color: '#dc2626' },
+  { id: 'compras', nombre: 'Compras', icono: 'cat-compras', color: '#db2777' },
+  { id: 'hogar', nombre: 'Hogar', icono: 'cat-hogar', color: '#65a30d' },
+  { id: 'entretenimiento', nombre: 'Salidas', icono: 'cat-entretenimiento', color: '#c026d3' },
+  { id: 'educacion', nombre: 'Educación', icono: 'cat-educacion', color: '#0d9488' },
+  { id: 'efectivo', nombre: 'Retiro efectivo', icono: 'cat-efectivo', color: '#52525b' },
+  { id: 'comisiones', nombre: 'Intereses y cargos', icono: 'cat-comisiones', color: '#9a3412' },
+  { id: 'otros', nombre: 'Otros', icono: 'cat-otros', color: '#71717a' },
 ];
 
 export const INGRESOS = [
-  { id: 'salario', nombre: 'Salario', icono: '💼', color: '#16a34a' },
-  { id: 'extra', nombre: 'Ingreso extra', icono: '✨', color: '#0891b2' },
+  { id: 'salario', nombre: 'Salario', icono: 'cat-salario', color: '#15803d' },
+  { id: 'extra', nombre: 'Ingreso extra', icono: 'cat-extra', color: '#0891b2' },
 ];
 
 const TODAS = [...CATEGORIAS, ...INGRESOS];

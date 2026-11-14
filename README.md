@@ -23,5 +23,5 @@ Configuración paso a paso: [apps-script/README.md](apps-script/README.md).
 
 - Sin build: HTML, CSS y JS con módulos nativos. Para probar: `python3 -m http.server 8000` y abrir <http://localhost:8000>.
 - Sin Firebase configurado (`js/config.js` en `null`), la app guarda todo en el teléfono (localStorage).
-- Pruebas: `npm test` (Node 22, sin dependencias). Cubren las reglas de `js/domain/` y el lector de correos.
+- Pruebas: `npm install` y `npm test`. Corren las reglas de `js/domain/`, el lector de correos y la app en un navegador con tamaño de celular (Playwright).
 - Estructura y decisiones: [CONTEXTO.md](CONTEXTO.md).

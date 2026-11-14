@@ -1,7 +1,7 @@
 // Punto de entrada: carga los datos, conecta la nube (si está configurada) y atiende los toques y formularios.
 
 import * as store from './store.js';
-import { ui, aviso } from './ui.js';
+import { ui, aviso, aplicarTema } from './ui.js';
 import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
 import { FIREBASE } from './config.js';
@@ -47,7 +47,7 @@ function generarFijos() {
 function procesos() {
   const n = procesarEntrantes();
   generarFijos();
-  if (n) aviso(`✉️ ${n} movimiento${n > 1 ? 's' : ''} nuevo${n > 1 ? 's' : ''} desde tus correos`);
+  if (n) aviso(`${n} movimiento${n > 1 ? 's' : ''} nuevo${n > 1 ? 's' : ''} desde tus correos`);
 }
 
 // ---------- Ventanas ----------
@@ -62,26 +62,32 @@ function cerrar() {
   renderModal();
 }
 
-function irA(vista, seccion) {
+function irA(vista, { sub = null, tab = null } = {}) {
   ui.vista = vista;
-  if (vista !== 'movimientos') { ui.soloRevisar = false; }
+  ui.sub = vista === 'mas' ? sub : null;
+  if (tab) ui.deudasTab = tab;
   renderVista();
-  if (seccion) document.getElementById(seccion)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  else window.scrollTo(0, 0);
+  window.scrollTo(0, 0);
 }
 
 // ---------- Toques ----------
 
 const ACCIONES = {
-  ir: d => irA(d.vista, d.seccion),
-  modal: d => abrir(d.tipo, { id: d.id || null }),
+  ir: d => irA(d.vista, { sub: d.sub, tab: d.tab }),
+  sub: d => irA('mas', { sub: d.sub }),
+  atras: () => irA(ui.vista),
+  'tab-deudas': d => { ui.deudasTab = d.tab; renderVista(); },
+  modal: d => abrir(d.tipo, { id: d.id || null, mov: d.mov || null }),
   cerrar,
   'cerrar-fondo': cerrar,
   pagar: d => abrir('pagar', { id: d.id }),
-  mes: d => { ui.soloRevisar = false; moverMes(Number(d.dir)); renderVista(); },
-  'ver-revisar': () => { ui.soloRevisar = true; ui.filtroCuenta = ''; ui.filtroCategoria = ''; irA('movimientos'); },
-  'ver-categoria': d => { ui.filtroCategoria = d.id; ui.filtroCuenta = ''; irA('movimientos'); },
-  'ver-cuenta': d => { ui.filtroCuenta = d.id; ui.filtroCategoria = ''; irA('movimientos'); },
+  mes: d => { if (ui.filtro === 'revisar') ui.filtro = 'todos'; moverMes(Number(d.dir)); renderVista(); },
+  filtro: d => { ui.filtro = d.valor; renderVista(); },
+  'quitar-cuenta': () => { ui.filtroCuenta = ''; renderVista(); },
+  'ver-revisar': () => { ui.filtro = 'revisar'; ui.filtroCuenta = ''; irA('movimientos'); },
+  'ver-categoria': d => { ui.filtro = d.id; ui.filtroCuenta = ''; irA('movimientos'); },
+  'ver-cuenta': d => { ui.filtroCuenta = d.id; ui.filtro = 'todos'; irA('movimientos'); },
+  tema: d => { aplicarTema(d.tema); renderVista(); },
   'poner-monto': (d, el) => { el.closest('form').monto.value = d.monto; },
   borrar: d => {
     if (!confirm('¿Borrar? No se puede deshacer.')) return;
@@ -108,7 +114,7 @@ const ACCIONES = {
     const d = datosEjemplo();
     for (const [col, objs] of Object.entries(d)) store.guardarVarios(col, objs, { silencioso: true });
     store.guardarAjustes({ ejemplo: true });
-    aviso('Datos de ejemplo cargados. Bórralos en Más → Borrar todos los datos.');
+    aviso('Datos de ejemplo cargados. Se borran en Más, Respaldo.');
   },
 };
 
@@ -145,9 +151,8 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   const d = el.dataset;
-  if (d.filtro && d.filtro !== 'busqueda') {
-    ui[d.filtro] = el.type === 'checkbox' ? el.checked : el.value;
-    renderVista();
+  if (d.ajuste) {
+    store.guardarAjustes({ [d.ajuste]: el.value.trim() });
   } else if (d.sim) {
     ui.simExtra[d.sim] = Math.max(0, leerMonto(el.value));
     renderVista();
@@ -158,7 +163,7 @@ document.addEventListener('change', ev => {
     const limite = leerMonto(el.value);
     if (limite > 0) store.guardar('presupuestos', { id: d.presupuesto, limite });
     else store.borrar('presupuestos', d.presupuesto);
-  } else if (el.name === 'tipo' && el.form?.dataset.tipo) {
+  } else if (el.name === 'tipo' && el.form?.dataset.tipo !== undefined) {
     el.form.dataset.tipo = el.value;
   } else if (d.accionArchivo === 'importar' && el.files?.[0]) {
     el.files[0].text().then(t => {
@@ -251,7 +256,7 @@ const FORMULARIOS = {
       id: store.nuevoId('m'), tipo: 'pago', monto, fecha: f.fecha || hoyISO(), cuentaId: deuda, desdeId: f.desdeId,
       extra: !!f.extra, comercio: `Pago ${nombreCuenta(deuda)}`, categoriaId: null, origen: 'manual', creado: Date.now(), revisar: false,
     });
-    return { ok: 'Pago registrado ✓' };
+    return { ok: 'Pago registrado' };
   },
 
   recurrente(f, form) {
@@ -296,11 +301,12 @@ document.addEventListener('submit', ev => {
   if (typeof res === 'string') { aviso(res, 'error'); return; }
   cerrar();
   renderVista();
-  aviso(res?.ok || 'Guardado ✓');
+  aviso(res?.ok || 'Guardado');
 });
 
 // ---------- Arranque ----------
 
+aplicarTema();
 store.cargarLocal();
 store.alCambiar(origen => {
   if (origen === 'remoto') procesos();

@@ -4,7 +4,14 @@
   "description": "Pruebas de MoneyMoney (la app no necesita build ni npm para funcionar)",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/*.test.js",
-    "serve": "python3 -m http.server 8000"
+    "test": "node --test tests/*.test.js && playwright test",
+    "test:unidad": "node --test tests/*.test.js",
+    "test:app": "playwright test",
+    "serve": "python3 -m http.server 8000",
+    "icons": "node tools/gen-icons.cjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "lucide-static": "^1.52.0"
   }
 }

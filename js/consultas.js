@@ -30,13 +30,13 @@ export function nombreCuenta(id) {
 // Con qué se puede pagar un gasto: efectivo, cuentas y tarjetas
 export const opcionesPagoCon = () => [
   ...cuentas().map(c => [c.id, c.nombre]),
-  ...tarjetas().map(t => [t.id, `💳 ${t.nombre} ···${t.ultimos4}`]),
+  ...tarjetas().map(t => [t.id, `Tarjeta ${t.nombre} ···${t.ultimos4}`]),
 ];
 
 // A qué deuda se puede abonar
 export const opcionesDeuda = () => [
-  ...tarjetas().map(t => [t.id, `💳 ${t.nombre} ···${t.ultimos4}`]),
-  ...prestamos().map(p => [p.id, `🏦 ${p.nombre}`]),
+  ...tarjetas().map(t => [t.id, `${t.nombre} ···${t.ultimos4}`]),
+  ...prestamos().map(p => [p.id, p.nombre]),
 ];
 
 export const opcionesCuentas = () => cuentas().map(c => [c.id, c.nombre]);
