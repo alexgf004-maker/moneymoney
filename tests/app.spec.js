@@ -140,3 +140,40 @@ test('correos del banco: compras, pagos y estados de cuenta llegan solos', async
   await expect(page.locator('#vista')).toContainText('Restaurantes · Visa Emma ···2222');
   expect(errores).toEqual([]);
 });
+
+test('correos revisados y comparación con el estado de cuenta', async ({ page }) => {
+  const errores = [];
+  page.on('pageerror', e => errores.push(e.message));
+  page.on('dialog', d => d.accept());
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('sembrado')) return;
+    sessionStorage.setItem('sembrado', '1');
+    const hoy = new Date();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dias = n => iso(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + n));
+    localStorage.setItem('moneymoney:v1', JSON.stringify({
+      tarjetas: { t1: { id: 't1', banco: 'bac', nombre: 'Mastercard BAC', ultimos4: '4444', limite: 600, diaCorte: Number(dias(-2).slice(8)), diaPago: 5, tasaAnual: 40, minimoPct: 5, saldoInicial: 100, fechaSaldo: dias(-10), saldoCorteInicial: 0, pagadoCorteInicial: 0 } },
+      movimientos: { m1: { id: 'm1', fecha: dias(-5), monto: 50, tipo: 'gasto', cuentaId: 't1', categoriaId: 'super', comercio: 'WALMART', origen: 'correo' } },
+      estados: { e1: { id: 'e1', banco: 'bac', ultimos4: '4444', fechaCorte: dias(-2), fechaPago: dias(18), contado: 158.5, minimo: 20 } },
+      revision: {
+        r1: { id: 'r1', fecha: dias(-5), banco: 'bac', asunto: 'Alerta de compra', resultado: 'movimiento', monto: 50, ultimos4: '4444' },
+        r2: { id: 'r2', fecha: dias(-4), banco: 'agricola', asunto: 'El Extra que necesitas', resultado: 'publicidad' },
+        r3: { id: 'r3', fecha: dias(-3), banco: 'agricola', asunto: 'Notificación de cargo', resultado: 'sin-tarjeta', monto: 12.25 },
+      },
+    }));
+  });
+  await page.goto('/');
+  // Comparación con el banco: el banco dice 158.50, la app calculó 150.00
+  await page.locator('.nav').getByRole('button', { name: 'Deudas' }).click();
+  const tc = page.locator('.tc', { hasText: 'Mastercard BAC' });
+  await expect(tc).toContainText('Diferencia de $8.50 con el banco');
+  await tc.getByRole('button', { name: 'Ajustar al banco' }).click();
+  await expect(tc).toContainText('Cuadra con tu estado de cuenta');
+  // Correos revisados: el descartado se puede anotar con sus datos
+  await page.locator('.nav').getByRole('button', { name: 'Más' }).click();
+  await page.getByRole('button', { name: /Correos revisados/ }).click();
+  await expect(page.locator('#vista')).toContainText('1 por revisar');
+  await page.getByRole('button', { name: /Notificación de cargo/ }).click();
+  await expect(page.locator('form[data-form=movimiento] [name=monto]')).toHaveValue('12.25');
+  expect(errores).toEqual([]);
+});

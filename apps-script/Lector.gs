@@ -229,28 +229,37 @@ function lectorEstado(texto, asunto) {
   };
 }
 
+// Analiza un correo y dice qué pasó con él, para el registro de "Correos revisados" de la app.
+// resultado: movimiento | estado | publicidad | sin-tarjeta | sin-movimiento | estado-incompleto | ajeno (no es de un banco)
 // correo: { de, asunto, cuerpo (html o texto), fecha 'AAAA-MM-DD', adjunto (texto de un PDF, opcional) }
-function leerCorreo(correo) {
+function analizarCorreo(correo) {
   var texto = String(correo.asunto || '') + '\n' + textoPlano(correo.cuerpo) + (correo.adjunto ? '\n' + correo.adjunto : '');
   var banco = bancoPorRemitente(correo.de) || bancoPorTexto(texto);
-  if (PUBLICIDAD.test(String(correo.asunto || ''))) return null;
+  var deBanco = banco ? banco.id : null;
+  var nada = function (resultado, monto) { return { datos: null, banco: deBanco, resultado: deBanco ? resultado : 'ajeno', monto: monto || null }; };
+  if (PUBLICIDAD.test(String(correo.asunto || ''))) return nada('publicidad');
   var datos;
   if (esEstadoDeCuenta(texto)) {
-    if (!banco) return null;
+    if (!banco) return nada('ajeno');
     datos = lectorEstado(texto, correo.asunto);
-    if (!datos.fechaCorte || datos.contado === null) return null;
+    if (!datos.fechaCorte || datos.contado === null) return nada('estado-incompleto');
   } else {
     datos = lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
-    // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otra cosa (va a "sin leer")
-    if (!datos || !datos.ultimos4) return null;
+    if (!datos) return nada(PALABRAS_TRANSACCION.test(texto) ? 'sin-movimiento' : 'aviso');
+    // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otro aviso
+    if (!datos.ultimos4) return nada('sin-tarjeta', datos.monto);
     // Sin banco reconocido solo se acepta una alerta clara de tarjeta (con dígitos y monto)
-    if (!banco && !(datos.ultimos4 && /tarjeta/i.test(texto) && datos.confianza === 'alta')) return null;
+    if (!banco && !(/tarjeta/i.test(texto) && datos.confianza === 'alta')) return nada('ajeno');
     datos.fecha = datos.fecha || correo.fecha;
   }
-  datos.banco = datos.banco || (banco ? banco.id : null);
+  datos.banco = datos.banco || deBanco;
   if (datos.tipo !== 'estado' && /tarjeta de d[eé]bito/i.test(texto)) datos.debito = true;
   datos.asunto = String(correo.asunto || '').slice(0, 120);
-  return datos;
+  return { datos: datos, banco: datos.banco, resultado: datos.tipo === 'estado' ? 'estado' : 'movimiento', monto: datos.monto || datos.contado || null };
 }
 
-if (typeof module !== 'undefined') module.exports = { leerCorreo: leerCorreo, textoPlano: textoPlano, leerFecha: leerFecha, BANCOS: BANCOS };
+function leerCorreo(correo) {
+  return analizarCorreo(correo).datos;
+}
+
+if (typeof module !== 'undefined') module.exports = { leerCorreo: leerCorreo, analizarCorreo: analizarCorreo, textoPlano: textoPlano, leerFecha: leerFecha, BANCOS: BANCOS };

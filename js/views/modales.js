@@ -26,15 +26,17 @@ const botonBorrar = (col, id) => (id ? `<button type="button" class="btn peligro
 const cats = lista => lista.map(c => [c.id, c.nombre, c.icono]);
 const TIPOS_MOV = [['gasto', 'Gasto', 'cat-compras'], ['ingreso', 'Ingreso', 'ingreso'], ['pago', 'Pago deuda', 'pago'], ['reembolso', 'Devolución', 'devolucion']];
 
-function movimiento({ id, mov: tipoInicial }) {
-  const m = id ? obtener('movimientos', id) : null;
+// revision: id de un correo descartado (Más > Correos revisados), para anotarlo a mano con sus datos
+function movimiento({ id, mov: tipoInicial, revision }) {
+  const r = revision ? obtener('revision', revision) : null;
+  const m = id ? obtener('movimientos', id) : r ? { monto: r.monto || 0, fecha: r.fecha, comercio: r.asunto, tipo: 'gasto' } : null;
   const tipo = m?.tipo || tipoInicial || 'gasto';
   const cuentaGasto = m && m.tipo !== 'pago' ? m.cuentaId : 'efectivo';
   const sugerido = m ? patronSugerido(m.comercio) : '';
   const deudas = opcionesDeuda();
   const cuerpo = `<form data-form="movimiento" data-tipo="${tipo}" data-id="${id || ''}">
     ${m?.revisar ? `<div class="aviso-fila" style="margin-top:0">${ic('revisar')}<span class="rt"><b>Revisa y guarda para confirmar</b><small style="white-space:normal">${m.origen === 'correo' ? 'Llegó de un correo del banco. ' : ''}${m.cuentaId ? 'Confirma la categoría.' : 'No reconocí la tarjeta: elige con qué se pagó.'}</small></span></div>` : ''}
-    <label class="monto"><span>$</span>${entrada('monto', m ? m.monto.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, ph: '0.00', extra: 'aria-label="Monto" data-enfocar' })}</label>
+    <label class="monto"><span>$</span>${entrada('monto', m && m.monto ? m.monto.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, ph: '0.00', extra: 'aria-label="Monto" data-enfocar' })}</label>
     ${opciones('tipo', TIPOS_MOV, tipo, 'tipos')}
     <div class="solo-gasto solo-ingreso solo-reembolso">${campo('Comercio o descripción', entrada('comercio', m?.comercio || '', { ph: 'Ej. Super Selectos' }))}</div>
     <div class="solo-gasto solo-reembolso">${campo('Categoría', opciones('categoriaId', cats(CATEGORIAS), m?.categoriaId || 'super'))}</div>
@@ -54,7 +56,7 @@ function movimiento({ id, mov: tipoInicial }) {
     ${m?.origen === 'correo' ? `<small class="mu">Del correo de ${esc(m.banco || 'tu banco')}${m.ultimos4 ? ` · tarjeta ···${esc(m.ultimos4)}` : ''}</small>` : ''}
     ${pie(botonBorrar('movimientos', id), m?.revisar ? 'Confirmar' : 'Guardar')}
   </form>`;
-  return { titulo: m ? 'Movimiento' : 'Anotar', cuerpo };
+  return { titulo: id ? 'Movimiento' : 'Anotar', cuerpo };
 }
 
 // pre: clave de una tarjeta detectada en los correos ("banco|1234"), para llenar el formulario

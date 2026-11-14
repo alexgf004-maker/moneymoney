@@ -13,6 +13,7 @@ const SUBS = {
   reglas: ['Reglas de categorías', reglasHTML],
   conexion: ['Conexión con Gmail', conexion],
   noleidos: ['Correos sin leer', noLeidos],
+  revisados: ['Correos revisados', revisados],
   apariencia: ['Apariencia', apariencia],
   respaldo: ['Respaldo', respaldo],
 };
@@ -35,6 +36,7 @@ export function vistaMas() {
     <div class="grupo-t">Automatización</div>
     <div class="card">
       ${fila('conexion', conectado ? 'nube' : 'correo', 'Conexión con Gmail', conectado ? `Conectado como ${esc(ui.usuario?.correo || '')}` : 'Registra solas tus compras con tarjeta')}
+      ${lista('revision').length ? fila('revisados', 'revisar', 'Correos revisados', `${lista('revision').length} correos de tus bancos · qué se hizo con cada uno`) : ''}
       ${n ? fila('noleidos', 'bandeja', 'Correos sin leer', `${n} correo${n > 1 ? 's' : ''} del banco por revisar`) : ''}
     </div>
     <div class="grupo-t">App</div>
@@ -43,6 +45,48 @@ export function vistaMas() {
       ${fila('respaldo', 'base', 'Respaldo', 'Descargar o restaurar tus datos')}
     </div>
   `;
+}
+
+// Qué pasó con cada correo de banco que revisó el script de Gmail
+const RESULTADOS = {
+  movimiento: ['Registrado', 'ok', 'check'],
+  estado: ['Estado de cuenta', 'ok', 'calendario'],
+  publicidad: ['Publicidad', '', 'bandeja'],
+  aviso: ['Aviso sin montos', '', 'info'],
+  'sin-tarjeta': ['Sin tarjeta: no se registró', 'warn', 'alerta'],
+  'sin-movimiento': ['No se entendió', 'warn', 'alerta'],
+  'estado-incompleto': ['Estado de cuenta incompleto', 'warn', 'alerta'],
+};
+const esDescartado = r => ['sin-tarjeta', 'sin-movimiento', 'estado-incompleto'].includes(r.resultado);
+
+function revisados() {
+  const todos = lista('revision').sort((a, b) => (b.fecha || '').localeCompare(a.fecha || ''));
+  const reg = todos.filter(r => r.resultado === 'movimiento' || r.resultado === 'estado').length;
+  const desc = todos.filter(esDescartado).length;
+  const otros = todos.length - reg - desc;
+  const verDescartados = ui.filtroRevision === 'descartados';
+  const lista_ = verDescartados ? todos.filter(esDescartado) : todos;
+  return `
+    <section class="pc">
+      <div class="pc-top"><span class="pc-lbl">Correos de tus bancos revisados</span>${desc ? `<span class="badge rojo">${ic('alerta')} ${desc} por revisar</span>` : `<span class="badge">${ic('check')} Nada pendiente</span>`}</div>
+      <div class="big">${todos.length}</div>
+      <div class="pc-div"></div>
+      <div class="mini"><div>Registrados<b>${reg}</b></div><div>Publicidad y avisos<b>${otros}</b></div></div>
+    </section>
+    <p class="mu" style="margin:14px 4px">Si un correo dice "No se registró" y sí era una compra o un pago, tócalo para anotarlo. Los de publicidad se ignoran a propósito.</p>
+    <div class="pildoras" style="margin-bottom:12px">
+      <button class="pildora ${verDescartados ? '' : 'on'}" data-accion="filtro-revision" data-valor="todos">Todos</button>
+      <button class="pildora ${verDescartados ? 'on' : ''}" data-accion="filtro-revision" data-valor="descartados">Por revisar ${desc ? `<span class="num">${desc}</span>` : ''}</button>
+    </div>
+    <div class="card">${lista_.length ? lista_.slice(0, 150).map(r => {
+      const [texto, tono, icono] = RESULTADOS[r.resultado] || ['Otro', '', 'info'];
+      const accion = esDescartado(r) ? `data-accion="anotar-revision" data-id="${esc(r.id)}"` : '';
+      return `<${accion ? 'button' : 'div'} class="row" ${accion}>
+        ${tile(icono, tono === 'warn' ? 'oro' : tono)}
+        <span class="rt"><b>${esc(r.asunto || 'Sin asunto')}</b><small><span class="chip ${tono}">${texto}</span>${r.fecha ? fechaCorta(r.fecha) : ''} · ${esc(nombreBanco(r.banco))}${r.ultimos4 ? ` ···${esc(r.ultimos4)}` : ''}</small></span>
+        <span class="amt">${r.monto ? dinero(r.monto) : ''}</span>
+      </${accion ? 'button' : 'div'}>`;
+    }).join('') : vacio('check', 'Nada por revisar')}</div>`;
 }
 
 function presupuesto() {

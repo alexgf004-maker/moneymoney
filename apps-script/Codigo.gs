@@ -44,12 +44,16 @@ function textoDePdf_(msg) {
 
 function leerMensaje_(msg) {
   var correo = { de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody() || msg.getPlainBody(), fecha: fechaISO_(msg.getDate()) };
-  var datos = leerCorreo(correo);
-  if (!datos && (bancoPorRemitente(correo.de) || bancoPorTexto(textoPlano(correo.cuerpo)))) {
+  var analisis = analizarCorreo(correo);
+  // Si es de un banco y no se entendió, se intenta con el PDF adjunto (comprobantes de pago)
+  if (!analisis.datos && analisis.banco && analisis.resultado !== 'publicidad') {
     correo.adjunto = textoDePdf_(msg);
-    if (correo.adjunto) datos = leerCorreo(correo);
+    if (correo.adjunto) {
+      var conPdf = analizarCorreo(correo);
+      if (conPdf.datos) analisis = conPdf;
+    }
   }
-  return { correo: correo, datos: datos };
+  return { correo: correo, datos: analisis.datos, analisis: analisis };
 }
 
 // Ids de correos ya enviados (con la fecha), para no mandar dos veces el mismo
@@ -79,10 +83,15 @@ function fechaISO_(d) {
   return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd');
 }
 
-function procesarCorreos(dias) {
+// dias: cuántos días atrás buscar. forzar: volver a revisar también los correos ya procesados (para llenar el
+// registro de "Correos revisados"); la app no duplica movimientos porque cada correo tiene su propio id.
+function procesarCorreos(dias, forzar) {
   dias = typeof dias === 'number' ? dias : DIAS_ATRAS;
+  var inicio = Date.now();
   var cfg = config_();
   var hechos = procesados_();
+  var props = PropertiesService.getScriptProperties();
+  var revisados = forzar ? JSON.parse(props.getProperty('REVISADOS') || '{}') : {};
   var etiqueta = GmailApp.getUserLabelByName(ETIQUETA) || GmailApp.createLabel(ETIQUETA);
   var hilos = [];
   for (var desde = 0; desde < 500; desde += 100) {
@@ -90,31 +99,51 @@ function procesarCorreos(dias) {
     hilos = hilos.concat(pagina);
     if (pagina.length < 100) break;
   }
-  var enviados = 0, noLeidos = 0;
-  hilos.forEach(function (hilo) {
+  var enviados = 0, noLeidos = 0, revisadosAhora = 0, incompleto = false;
+  for (var h = 0; h < hilos.length && !incompleto; h++) {
     var tocado = false;
-    hilo.getMessages().forEach(function (msg) {
+    var mensajes = hilos[h].getMessages();
+    for (var k = 0; k < mensajes.length; k++) {
+      // Google corta a los 6 minutos: a los 4.5 se guarda lo avanzado y se sigue en la próxima ejecución
+      if (Date.now() - inicio > 270000) { incompleto = true; break; }
+      var msg = mensajes[k];
       var id = msg.getId();
-      if (hechos[id]) return;
+      if (forzar ? revisados[id] : hechos[id]) continue;
       var leido = leerMensaje_(msg);
       var correo = leido.correo, datos = leido.datos;
       var texto = textoPlano(correo.cuerpo);
+      // Registro de cada correo de banco revisado (la app lo muestra en Más > Correos revisados)
+      if (leido.analisis.resultado !== 'ajeno') {
+        enviar_(cfg, 'revision/' + id, {
+          id: id, fecha: (datos && datos.fecha) || correo.fecha, recibido: correo.fecha, banco: leido.analisis.banco,
+          asunto: String(correo.asunto || '').slice(0, 120), resultado: leido.analisis.resultado, monto: leido.analisis.monto,
+          tipo: datos ? datos.tipo : null, ultimos4: datos ? datos.ultimos4 || null : null,
+        });
+        revisadosAhora++;
+      }
       if (datos) {
         datos.id = id;
         enviar_(cfg, 'entrantes/' + id, datos);
         enviados++;
-      } else if ((bancoPorRemitente(correo.de) || bancoPorTexto(texto)) && PALABRAS_TRANSACCION.test(correo.asunto + ' ' + texto)) {
-        // Correo del banco que no se pudo leer (promoción o formato nuevo): se guarda el inicio para mejorar el lector
+      } else if (leido.analisis.banco && /sin-movimiento|sin-tarjeta|estado-incompleto/.test(leido.analisis.resultado)) {
+        // Correo del banco que no se pudo leer: se guarda el inicio para mejorar el lector
         enviar_(cfg, 'noLeidos/' + id, { id: id, fecha: correo.fecha, de: correo.de, asunto: correo.asunto.slice(0, 120), texto: texto.slice(0, 600) });
         noLeidos++;
       }
       hechos[id] = Date.now();
+      if (forzar) revisados[id] = 1;
       tocado = true;
-    });
-    if (tocado) hilo.addLabel(etiqueta);
-  });
+    }
+    if (tocado) hilos[h].addLabel(etiqueta);
+  }
   guardarProcesados_(hechos);
-  Logger.log('Movimientos enviados: ' + enviados + ' · correos no reconocidos: ' + noLeidos);
+  if (forzar) {
+    if (incompleto) props.setProperty('REVISADOS', JSON.stringify(revisados));
+    else props.deleteProperty('REVISADOS');
+  }
+  Logger.log('Correos de bancos revisados: ' + revisadosAhora + ' · movimientos enviados: ' + enviados + ' · no reconocidos: ' + noLeidos);
+  if (incompleto) Logger.log('FALTAN CORREOS: se acabó el tiempo. Vuelve a ejecutar la misma función para seguir donde quedó.');
+  else Logger.log('Terminado: se revisaron todos los correos.');
 }
 
 // Ejecutar UNA vez: crea la revisión automática cada 5 minutos
@@ -130,6 +159,12 @@ function instalar() {
 // Ejecutar UNA vez después de instalar: trae los últimos 60 días (compras, pagos y estados de cuenta)
 function importarHistorial() {
   procesarCorreos(60);
+}
+
+// Vuelve a revisar los últimos 60 días, también los correos ya procesados, para llenar "Correos revisados" en la app.
+// Si se acaba el tiempo, ejecútala otra vez y sigue donde quedó.
+function revisarHistorial() {
+  procesarCorreos(60, true);
 }
 
 // Para revisar sin enviar nada: muestra en el registro lo que se leería de los últimos correos

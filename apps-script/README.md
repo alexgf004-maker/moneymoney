@@ -48,6 +48,15 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
 Los correos que ya leyó quedan con la etiqueta **MoneyMoney** en Gmail. Si un correo del banco no se entiende,
 aparece en la app en **Más → Correos del banco sin leer**.
 
+## ¿Cómo sé que no se le escapa nada?
+
+- En la app, **Más > Correos revisados** muestra cada correo de tus bancos y qué se hizo con él: registrado, estado de
+  cuenta, publicidad o "no se registró". Los que no se registraron se pueden tocar para anotarlos a mano.
+- Cuando llega el estado de cuenta, cada tarjeta compara lo que dice el banco con lo que calculó la app. Si no cuadra,
+  muestra la diferencia y un botón "Ajustar al banco".
+- Para llenar "Correos revisados" con los últimos 60 días (también los ya procesados), ejecuta **`revisarHistorial`** una
+  vez. Si sale "FALTAN CORREOS", vuelve a ejecutarla: sigue donde quedó.
+
 ## ¿Qué lee de cada banco?
 
 | Banco | Correo | Qué saca |

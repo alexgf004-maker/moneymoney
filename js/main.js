@@ -9,10 +9,10 @@ import { iniciarFirebase, entrarConGoogle, salir } from './firebase.js';
 import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
 import { recurrentesPendientes } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
-import { estadoTarjeta } from './domain/tarjetas.js';
+import { estadoTarjeta, movimientoDeAjuste } from './domain/tarjetas.js';
 import { leerMonto } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
-import { nombreCuenta, estadosDe } from './consultas.js';
+import { nombreCuenta, estadosDe, estadoDe } from './consultas.js';
 import { datosEjemplo } from './demo.js';
 
 const num = v => (v === '' || v === null || v === undefined ? null : leerMonto(v));
@@ -87,6 +87,15 @@ const ACCIONES = {
   cerrar,
   'cerrar-fondo': cerrar,
   pagar: d => abrir('pagar', { id: d.id }),
+  'ajustar-corte': d => {
+    const t = store.obtener('tarjetas', d.id);
+    const c = t && estadoDe(t).conciliacion;
+    if (!c || !c.diferencia) return;
+    store.guardar('movimientos', { ...movimientoDeAjuste(t, c), creado: Date.now() });
+    aviso(`Ajustado: se agregó un ${c.diferencia > 0 ? 'cargo' : 'crédito'} de $${Math.abs(c.diferencia).toFixed(2)}`);
+  },
+  'anotar-revision': d => abrir('movimiento', { revision: d.id }),
+  'filtro-revision': d => { ui.filtroRevision = d.valor; renderVista(); },
   mes: d => { if (ui.filtro === 'revisar') ui.filtro = 'todos'; moverMes(Number(d.dir)); renderVista(); },
   filtro: d => { ui.filtro = d.valor; renderVista(); },
   'quitar-cuenta': () => { ui.filtroCuenta = ''; renderVista(); },

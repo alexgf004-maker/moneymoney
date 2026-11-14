@@ -81,6 +81,15 @@ tests/              *.test.js con node --test (reglas y lector) · app.spec.js c
 - Faltan ejemplos del estado de cuenta de Agrícola y Siman.
 - Confirmar las direcciones exactas de los remitentes cuando el script corra (la búsqueda incluye "notificaciones" y "alertas").
 
+## Control de que no se escape nada
+- `revision/{idCorreo}`: el script registra cada correo de banco con su resultado (`analizarCorreo` en Lector.gs:
+  movimiento, estado, publicidad, aviso, sin-tarjeta, sin-movimiento, estado-incompleto). La app lo muestra en
+  Más > Correos revisados, y los descartados se pueden anotar con sus datos.
+- Conciliación al corte (`conciliar` en tarjetas.js): con un estado de cuenta posterior a la configuración de la tarjeta,
+  compara el pago de contado del banco con el saldo calculado al corte. "Ajustar al banco" agrega un movimiento
+  `aj_{tarjeta}_{corte}` (cargo o crédito en "Intereses y cargos") que deja ambos iguales.
+- El script corta a los 4.5 minutos y guarda lo avanzado (Google corta a los 6).
+
 ## Pagos entre tarjetas
 Un pago con `desdeId` = otra tarjeta (p. ej. pagar la Siman desde la Cuscatlán con "Pago de servicio") baja la deuda de
 `cuentaId` y sube la de `desdeId`. No cuenta como gasto. Los movimientos repetidos (misma tarjeta, tipo y monto con un

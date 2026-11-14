@@ -70,6 +70,7 @@ function tarjetasHTML(d, hoy) {
         ${e.alDia ? '' : `<div class="nota">${e.fuente === 'banco' ? 'Mínimo' : 'Mínimo aprox.'} ${dinero(e.minimoPendiente)}${e.interesSiMinimo > 0 ? ` · si pagas solo eso, unos <span class="bad">${dinero(e.interesSiMinimo)}</span> de intereses` : ''}</div>`}
       </div>
       ${e.fuente === 'banco' ? `<small class="mu" style="margin-top:10px">${ic('check')} Según tu estado de cuenta del ${fechaCorta(e.ultimoCorte)}</small>` : ''}
+      ${conciliacionHTML(t, e.conciliacion)}
       <small class="mu" style="margin-top:${e.fuente === 'banco' ? 4 : 10}px">Próximo corte ${fechaCorta(e.proximoCorte)} · compras desde el corte ${dinero(e.comprasCiclo)}</small>
       <div class="tc-acc">
         <button class="btn sm" data-accion="pagar" data-id="${t.id}">${ic('pago')} Registrar pago</button>
@@ -77,6 +78,22 @@ function tarjetasHTML(d, hoy) {
       </div>
     </article>`;
   }).join('');
+}
+
+// Comparación con el estado de cuenta: ¿lo que registró la app al corte coincide con lo que dice el banco?
+function conciliacionHTML(t, c) {
+  if (!c) return '';
+  if (Math.abs(c.diferencia) < 1) return `<small class="ok" style="margin-top:4px">${ic('check')} Cuadra con tu estado de cuenta</small>`;
+  const mas = c.diferencia > 0;
+  return `<div class="caja" style="border:1px solid color-mix(in srgb, var(--warn) 40%, transparent)">
+    <b style="font-size:13.5px" class="warn">${ic('alerta')} Diferencia de ${dinero(Math.abs(c.diferencia))} con el banco</b>
+    <div class="nota" style="margin-top:6px">Al corte del ${fechaCorta(c.fechaCorte)} el banco dice ${dinero(c.banco)} y la app calculó ${dinero(c.app)}.
+      ${mas ? 'Pueden ser intereses, comisiones o una compra que no llegó por correo.' : 'Puede ser un pago o una devolución que no llegó por correo.'}</div>
+    <div class="tc-acc" style="margin-top:10px">
+      <button class="btn sm" data-accion="ajustar-corte" data-id="${t.id}">${ic('check')} Ajustar al banco</button>
+      <button class="btn sm sec" data-accion="ver-cuenta" data-id="${t.id}">${ic('movimientos')} Revisar</button>
+    </div>
+  </div>`;
 }
 
 function prestamosHTML(d, hoy) {

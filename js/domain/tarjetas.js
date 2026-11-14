@@ -53,6 +53,24 @@ function pagadoDesde(tarjeta, movs, corte, hoy) {
   return r2(previo + sumar(abonos));
 }
 
+// Compara lo que dice el banco al corte con lo que la app calculó con los movimientos registrados.
+// Solo tiene sentido si el corte es posterior a cuando se configuró la tarjeta (antes no hay movimientos).
+// diferencia > 0: el banco cobra más (intereses, comisiones o algo que no llegó por correo).
+export function conciliar(tarjeta, movs, real) {
+  if (!real || !tarjeta.fechaSaldo || real.fechaCorte <= tarjeta.fechaSaldo) return null;
+  const app = saldoEn(tarjeta, movs, real.fechaCorte);
+  return { fechaCorte: real.fechaCorte, banco: r2(real.contado), app, diferencia: r2(real.contado - app) };
+}
+
+// Movimiento que deja el saldo de la app igual al del banco en la fecha de corte
+export function movimientoDeAjuste(tarjeta, c) {
+  return {
+    id: `aj_${tarjeta.id}_${c.fechaCorte}`, fecha: c.fechaCorte, monto: Math.abs(c.diferencia),
+    tipo: c.diferencia > 0 ? 'gasto' : 'reembolso', cuentaId: tarjeta.id, categoriaId: 'comisiones',
+    comercio: 'Ajuste según estado de cuenta', origen: 'ajuste', revisar: false,
+  };
+}
+
 // estados: los estados de cuenta del banco para esta tarjeta ({ fechaCorte, fechaPago, contado, minimo }).
 // Si hay uno del ciclo actual, se usan sus números exactos en vez de calcularlos.
 export function estadoDelCiclo(tarjeta, estados, hoy) {
@@ -84,6 +102,7 @@ export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
     ultimoCorte: corte,
     proximoCorte: real ? sumarMeses(real.fechaCorte, 1, tarjeta.diaCorte) : proximoCorte(tarjeta, hoy),
     fuente: real ? 'banco' : 'calculado',
+    conciliacion: conciliar(tarjeta, movs, real),
     fechaPago,
     diasParaPago: diasEntre(hoy, fechaPago),
     saldoCorte,

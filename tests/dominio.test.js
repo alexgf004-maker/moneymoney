@@ -201,3 +201,17 @@ test('seguros que cobra el banco a la tarjeta van a intereses y cargos', () => {
   assert.equal(categorizar('MEDICARE BAC -C').categoriaId, 'comisiones');
   assert.equal(categorizar('ACCIDENTES PERSONALES').categoriaId, 'comisiones');
 });
+
+test('al corte, la app compara con el banco y puede ajustar la diferencia', async () => {
+  const { movimientoDeAjuste } = await import('../js/domain/tarjetas.js');
+  const t = { ...tarjeta, diaCorte: 15, diaPago: 5, saldoInicial: 255.15, fechaSaldo: '2026-11-14' };
+  const movs = [{ id: 'm1', cuentaId: 't1', tipo: 'gasto', monto: 40, fecha: '2026-11-14' }, { id: 'm2', cuentaId: 't1', tipo: 'gasto', monto: 10, fecha: '2026-11-15' }];
+  const estados = [{ fechaCorte: '2026-11-15', fechaPago: '2026-12-05', contado: 270.15, minimo: 25 }];
+  const e = estadoTarjeta(t, movs, '2026-11-16', estados);
+  // m1 es del mismo día de la configuración (ya incluido en el saldo inicial); m2 sí cuenta: 255.15 + 10 = 265.15
+  assert.deepEqual(e.conciliacion, { fechaCorte: '2026-11-15', banco: 270.15, app: 265.15, diferencia: 5 });
+  const aj = movimientoDeAjuste(t, e.conciliacion);
+  const despues = estadoTarjeta(t, [...movs, aj], '2026-11-16', estados);
+  assert.equal(despues.conciliacion.diferencia, 0);
+  assert.equal(aj.categoriaId, 'comisiones');
+});

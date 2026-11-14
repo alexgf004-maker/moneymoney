@@ -240,3 +240,12 @@ test('compra con tarjeta de débito queda marcada como débito', () => {
   assert.equal(r.ultimos4, '1234');
   assert.equal(r.debito, true);
 });
+
+test('el análisis dice qué pasó con cada correo del banco', () => {
+  const { analizarCorreo } = ctx.module.exports;
+  const a = c => analizarCorreo({ fecha: '2026-11-13', ...c }).resultado;
+  assert.equal(a({ de: 'alertas@bancoagricola.com', asunto: 'Plan Alerta 365', cuerpo: 'su tarjeta de crédito 1111 ha realizado una compra por USD 5.00 en TIENDA' }), 'movimiento');
+  assert.equal(a({ de: 'promo@bancoagricola.com', asunto: 'El Extra que necesitas', cuerpo: 'préstamo de $2,100.00' }), 'publicidad');
+  assert.equal(a({ de: 'alertas@bancoagricola.com', asunto: 'Notificación', cuerpo: 'Se realizó un cargo de $20.00' }), 'sin-tarjeta');
+  assert.equal(a({ de: 'amigo@gmail.com', asunto: 'Hola', cuerpo: 'nos vemos' }), 'ajeno');
+});

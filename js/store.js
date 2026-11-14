@@ -2,7 +2,7 @@
 // configurado y la sesión iniciada, también en la nube (usuarios/{uid}/...), que es donde el script de
 // Gmail deja los movimientos nuevos.
 
-export const COLECCIONES = ['tarjetas', 'prestamos', 'cuentas', 'movimientos', 'reglas', 'presupuestos', 'recurrentes', 'estados', 'entrantes', 'noLeidos', 'ajustes'];
+export const COLECCIONES = ['tarjetas', 'prestamos', 'cuentas', 'movimientos', 'reglas', 'presupuestos', 'recurrentes', 'estados', 'entrantes', 'noLeidos', 'revision', 'ajustes'];
 const CLAVE = 'moneymoney:v1';
 
 const vacio = () => Object.fromEntries(COLECCIONES.map(c => [c, {}]));
