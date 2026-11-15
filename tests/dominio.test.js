@@ -367,3 +367,15 @@ test('agenda: el mismo día va primero el pago más caro', () => {
   const lista = proximosPagos({ tarjetas: [t('a', '1111', 11, 50), t('b', '2222', 12, 80), t('c', '3333', 13, 40), t('d', '4444', 13, 200)], prestamos: [], recurrentes: [], movs: [] }, '2026-12-09', 15);
   assert.deepEqual(lista.map(x => x.id), ['a', 'b', 'd', 'c']);
 });
+
+test('préstamo de 60 cuotas termina en la 60, sin cuota extra de centavos', () => {
+  const p = { id: 'p', monto: 7500, tasaAnual: 12.45, plazoMeses: 60, cuota: 180.93, fechaPrimerPago: '2026-08-27' };
+  const filas = tablaPagos(p);
+  assert.equal(filas.length, 60);
+  assert.equal(filas[59].fecha, '2031-07-27');
+  assert.equal(filas[59].saldo, 0);
+  const e = estadoPrestamo(p, [], '2026-11-15');
+  assert.equal(e.cuotasPagadas, 3);
+  assert.equal(e.cuotasTotales, 60);
+  assert.equal(e.cargos, 12.39);
+});

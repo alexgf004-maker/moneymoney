@@ -41,6 +41,9 @@ export function tablaPagos(p, { extras = [], extraMensual = 0, extraDesde = '' }
     if (saldo <= 0.005) { filas.push({ n, fecha, cuota: 0, interes: 0, capital: 0, extra: r2(abonoExtra), cargos: 0, saldo: 0 }); break; }
     const interes = r2(saldo * i);
     let capital = r2(capitalEInteres - interes);
+    // Última cuota del plazo (o si solo quedan centavos por redondeo): se paga todo lo que queda,
+    // para no inventar una cuota extra de centavos al final
+    if (n >= p.plazoMeses || saldo - capital < 1) capital = saldo;
     let extraCuota = fecha > extraDesde ? r2(extraMensual) : 0;
     if (capital + extraCuota >= saldo) { capital = Math.min(capital, saldo); extraCuota = r2(saldo - capital); }
     saldo = r2(saldo - capital - extraCuota);
