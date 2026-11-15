@@ -81,8 +81,7 @@ function plan({ id, pre }) {
     <div class="solo-extra">${marca('fueraDelLimite', 'No ocupa el límite de la tarjeta (es un crédito aparte)', p ? !!p.fueraDelLimite : true)}
       <small class="mu" style="margin:-8px 0 10px">Para saberlo: si límite = saldo + disponible + lo que falta de las compras a tasa cero, sin contar este extrafinanciamiento, márcala.</small></div>
     <div class="solo-extra">${campo('Tasa de interés anual % (opcional)', entrada('tasaAnual', p?.tasaAnual ?? '', { tipo: 'number', paso: '0.01', min: 0 }), 'Solo informativa: la cuota ya incluye el interés')}</div>
-    ${p ? '' : `${marca('incluido', 'El saldo que puse en esta tarjeta ya incluye lo que falta de esta compra')}
-      <small class="mu">Casi siempre NO: los bancos muestran el saldo y las cuotas por separado. Si al configurar la tarjeta calculaste el límite como saldo + disponible, súbele lo que falta de esta compra.</small>`}
+    <small class="mu">Lo que falta de esta compra se suma aparte al saldo de la tarjeta, como lo muestra el banco.</small>
     ${pie(id ? `<button type="button" class="btn peligro" data-accion="borrar-plan" data-tarjeta="${esc(pre)}" data-id="${esc(id)}" aria-label="Borrar">${ic('borrar')}</button>` : '')}
   </form>`;
   return { titulo: p ? 'Compra en cuotas' : 'Nueva compra en cuotas', cuerpo };

@@ -60,7 +60,7 @@ function tarjetasHTML(d, hoy) {
         <button class="ib chico" data-accion="modal" data-tipo="tarjeta" data-id="${t.id}" aria-label="Editar tarjeta">${ic('editar')}</button>
       </div>
       <div class="cifra">${dinero(e.deudaTotal)}</div>
-      ${e.enCuotas ? `<small class="mu">Saldo ${dinero(e.saldoActual)} + ${dinero(e.enCuotas)} en cuotas</small>` : ''}
+      ${e.enCuotas ? `<small class="mu">${e.saldoActual < 0 ? `${dinero(-e.saldoActual)} a tu favor` : `Saldo ${dinero(e.saldoActual)}`} + ${dinero(e.enCuotas)} en cuotas</small>` : ''}
       ${lin(e.uso, e.uso >= 0.9 ? 'bad' : e.uso >= 0.5 ? 'warn' : '')}
       <small class="mu">${(e.uso * 100).toFixed(0)}% de ${dinero(t.limite)} usado · disponible ${dinero(e.disponible)}</small>
       <div class="caja">

@@ -259,7 +259,6 @@ const FORMULARIOS = {
     // Se cuenta desde el último corte: las cuotas cobradas incluyen la de ese estado de cuenta
     const plan = { id, nombre: f.nombre.trim(), tipo: f.tipo || 'tasa0', cuota, total, cobradas, corteRef: estadoDe(t).ultimoCorte, tasaAnual: num(f.tasaAnual), fueraDelLimite: f.tipo === 'extra' && !!f.fueraDelLimite };
     const cambios = { planes: { ...(t.planes || {}), [id]: plan } };
-    if (!form.dataset.id && f.incluido) cambios.saldoInicial = r2((t.saldoInicial || 0) - cuota * (total - cobradas));
     store.guardar('tarjetas', { ...t, ...cambios });
   },
 
