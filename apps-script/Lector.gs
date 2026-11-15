@@ -109,7 +109,7 @@ function buscarUltimos4(texto) {
 
 // Últimos 4 de la cuenta de donde salió un pago (Transfer365 o comprobante)
 function buscarOrigen4(texto) {
-  var m = texto.match(/cuenta origen[\s:|]*[*xX]*(\d{4})\b/i) || texto.match(/\bdesde[\s:|]*\d*(\d{4})\s*(?:CA|CC|AH)?\b/i);
+  var m = texto.match(/(?:cuenta|producto) (?:de )?origen[\s:|]*[*xX]*\d*(\d{4})\b/i) || texto.match(/\bdesde[\s:|]*\d*(\d{4})\s*(?:CA|CC|AH)?\b/i);
   return m ? m[1] : null;
 }
 

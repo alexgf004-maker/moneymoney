@@ -290,3 +290,19 @@ test('BAC: estado de cuenta tal como lo lee Gmail ("dólares" en la línea sigui
   assert.equal(r.minimo, 59);
   assert.equal(r.contado, 101.35);
 });
+
+test('Cuscatlán: abono Transfer365 a la tarjeta con "Producto Origen" (la cuenta de donde salió)', () => {
+  const r = leerCorreo({
+    de: 'Notificaciones Cuscatlan <notificaciones@bancocuscatlan.com>',
+    asunto: 'Transfer365',
+    cuerpo: `<p>TRANSACCIÓN EXITOSA</p><p>Buen día, JUAN PEREZ</p><p>Le informamos que ha recibido un abono a su TARJETA DE CREDITO XXXXXX7777 en concepto de <b>Transfer365</b>. Compartimos el detalle a continuación:</p>
+      <ul><li><b>Banco origen:</b></li><li>B. AGRICOLA</li><li><b>Originado por:</b></li><li>JUAN PEREZ</li><li><b>Producto Origen:</b></li><li>XXXXXX1234</li>
+      <li><b>Monto:</b></li><li>USD129.11</li><li><b>Fecha y hora:</b></li><li>15/11/2026 10:59:8 A.M.</li><li><b>Concepto:</b></li><li>Pya</li></ul>`,
+    fecha: '2026-11-15',
+  });
+  assert.equal(r.tipo, 'pago');
+  assert.equal(r.ultimos4, '7777');
+  assert.equal(r.monto, 129.11);
+  assert.equal(r.origen4, '1234');
+  assert.equal(r.fecha, '2026-11-15');
+});
