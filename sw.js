@@ -1,6 +1,6 @@
 // Red primero (así nunca se queda una versión vieja) y lo guardado solo sin señal.
 // Firebase y otros sitios van directo a la red. También muestra las notificaciones que manda el script de Gmail.
-const CACHE = 'moneymoney-v15';
+const CACHE = 'moneymoney-v16';
 
 self.addEventListener('install', e => {
   self.skipWaiting();

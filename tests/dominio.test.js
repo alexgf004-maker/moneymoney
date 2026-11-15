@@ -454,3 +454,41 @@ test('retiro sin tarjeta: se anota como salida de tu cuenta de ese banco', async
   assert.equal(m.categoriaId, 'efectivo');
   assert.equal(m.revisar, false);
 });
+
+test('¿me lo puedo permitir?: compara efectivo, tarjeta pagando el total y cuotas', async () => {
+  const { simularCompra } = await import('../js/domain/permitir.js');
+  const cuentas = [{ id: 'c1', nombre: 'Ahorro', saldoInicial: 1000, fechaSaldo: '2026-11-15' }];
+  const t = { ...tarjeta, limite: 2000, diaCorte: 23, diaPago: 17, saldoInicial: 100, fechaSaldo: '2026-11-15', saldoCorteInicial: 100, pagadoCorteInicial: 0 };
+  const recurrentes = [{ id: 's', nombre: 'Salario', tipo: 'ingreso', monto: 800, dia: 25, cuentaId: 'c1' }];
+  const datos = { cuentas, movs: [], tarjetas: [t], prestamos: [], recurrentes, estadosDe: () => [] };
+  const r = simularCompra(300, datos, '2026-11-15', { meses: 6, compromisos: [{ nombre: 'Lavadora', mensual: 100, fin: '2027-01-23' }] });
+  const f = Object.fromEntries(r.formas.map(x => [x.forma, x]));
+  assert.equal(r.antes.libre, 900);
+  // Efectivo: sale hoy
+  assert.equal(f.efectivo.libre, 600);
+  assert.equal(f.efectivo.cambioLibre, -300);
+  // Tarjeta: se paga el 17 dic, después del salario: hasta el 25 no cambia, pero el salario sobra menos
+  assert.equal(f.tarjeta.cambioLibre, 0);
+  assert.equal(f.tarjeta.fechaPago, '2026-12-17');
+  assert.equal(f.tarjeta.sobraSalario, 500);
+  assert.equal(f.tarjeta.interesMinimo, 9);
+  // Cuotas: 50 al mes desde el corte del 23 nov, la última en el de abril; retrasa el mes desde el que pagas menos
+  assert.equal(f.cuotas.cuota, 50);
+  assert.equal(f.cuotas.fin, '2027-04-23');
+  assert.equal(f.cuotas.liberaAntes, '2027-02');
+  assert.equal(f.cuotas.liberaDespues, '2027-05');
+  assert.equal(r.mejor, 'tarjeta');
+  // Si no alcanza de ninguna forma
+  assert.equal(simularCompra(5000, { ...datos, tarjetas: [] }, '2026-11-15').mejor, null);
+});
+
+test('¿me lo puedo permitir?: si ya falta dinero, la tarjeta (que no lo empeora hoy) aprieta y el efectivo no alcanza', async () => {
+  const { simularCompra } = await import('../js/domain/permitir.js');
+  const cuentas = [{ id: 'c1', nombre: 'Ahorro', saldoInicial: 50, fechaSaldo: '2026-11-15' }];
+  const t = { ...tarjeta, limite: 2000, diaCorte: 23, diaPago: 17, saldoInicial: 100, fechaSaldo: '2026-11-10', saldoCorteInicial: 100, pagadoCorteInicial: 0 };
+  const r = simularCompra(30, { cuentas, movs: [], tarjetas: [t], prestamos: [], recurrentes: [], estadosDe: () => [] }, '2026-11-15');
+  const f = Object.fromEntries(r.formas.map(x => [x.forma, x]));
+  assert.equal(r.yaFalta, 50);
+  assert.equal(f.efectivo.veredicto, 'no');
+  assert.equal(f.tarjeta.veredicto, 'aprieta');
+});

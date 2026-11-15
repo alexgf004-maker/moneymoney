@@ -12,6 +12,7 @@ export const ui = {
   filtro: 'todos', // todos | revisar | categoría
   filtroCuenta: '',
   cuentaSel: '', // cuenta elegida en Más > Tu dinero
+  permitir: { monto: '', que: '', meses: 6 }, // ¿Me lo puedo permitir?
   busqueda: '',
   presupuestoPlan: null,
   simExtra: {},

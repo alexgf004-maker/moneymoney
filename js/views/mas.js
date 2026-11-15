@@ -1,6 +1,6 @@
 import { ui, esc, ic, tile, top, vacio, lin, entrada, montoGrande, temaGuardado } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco, hormigaDelMes, suscripcionesActuales, compromisos } from '../consultas.js';
+import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco, hormigaDelMes, suscripcionesActuales, compromisos, simularPermitir } from '../consultas.js';
 import { CATEGORIAS, categoria } from '../domain/categorias.js';
 import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
@@ -15,6 +15,7 @@ const SUBS = {
   compromisos: ['Cuándo termino de pagar', compromisosHTML],
   fijos: ['Pagos fijos', fijos],
   cuentas: ['Tu dinero', cuentasHTML],
+  permitir: ['¿Me lo puedo permitir?', permitirHTML],
   reglas: ['Reglas de categorías', reglasHTML],
   conexion: ['Conexión con Gmail', conexion],
   noleidos: ['Correos sin leer', noLeidos],
@@ -40,6 +41,7 @@ export function vistaMas() {
       ${fila('compromisos', 'calendario', 'Cuándo termino de pagar', 'Tus pagos de cada mes y cuándo se acaban')}
       ${fila('fijos', 'repetir', 'Pagos fijos', `${recurrentes().length || 'Ninguno'} · se anotan solos cada mes`)}
       ${fila('cuentas', 'cartera', 'Tu dinero', 'Tus cuentas, efectivo y sus movimientos')}
+      ${fila('permitir', 'calculadora', '¿Me lo puedo permitir?', 'Cómo te conviene pagar una compra')}
       ${fila('reglas', 'regla', 'Reglas de categorías', `${reglas().length} propia${reglas().length === 1 ? '' : 's'} · más los comercios comunes`)}
     </div>
     <div class="grupo-t">Automatización</div>
@@ -371,4 +373,53 @@ function respaldo() {
       <small class="mu" style="margin-bottom:14px">Tarjetas, préstamos, movimientos y ajustes. No se puede deshacer.</small>
       <button class="btn sm peligro" data-accion="borrar-todo">${ic('borrar')} Borrar todo</button>
     </div>`;
+}
+
+// ---------- ¿Me lo puedo permitir? · opción 2 "Comparar formas de pago" (elegida el 15 nov 2026) ----------
+// El monto se escribe arriba y los resultados se recalculan sin redibujar la pantalla (para no perder el teclado).
+
+function permitirHTML() {
+  const p = ui.permitir;
+  return `
+    <label class="monto" style="margin-top:0"><span>$</span><input type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" data-permitir="monto" value="${esc(p.monto)}" aria-label="Cuánto cuesta" data-enfocar></label>
+    <input class="entrada-que" type="text" data-permitir="que" value="${esc(p.que)}" placeholder="Qué es (opcional), ej. Celular" aria-label="Qué es">
+    <div id="permitir-res">${resultadosPermitir()}</div>`;
+}
+
+export function resultadosPermitir() {
+  const p = ui.permitir;
+  const monto = Number(String(p.monto).replace(',', '.'));
+  if (!(monto > 0)) return `<p class="mu" style="margin:16px 4px">Escribe cuánto cuesta y te digo cómo te conviene pagarlo: con efectivo o débito, con tarjeta pagando el total, o en cuotas.</p>`;
+  const r = simularPermitir(monto, p.meses);
+  if (!r) return `<button class="aviso-fila" data-accion="ir" data-vista="mas" data-sub="cuentas">${ic('cartera')}<span class="rt"><b>Primero pon cuánto tienes</b><small style="white-space:normal">Necesito el saldo de tus cuentas y tu efectivo para hacer las cuentas.</small></span><span class="mu">${ic('chevron-right')}</span></button>`;
+  const dia = Number(r.antes.hasta.slice(8));
+  const hasta = r.antes.ingreso ? `el ${dia}` : 'fin de mes';
+  const mesDe_ = f => nombreMes(f.slice(0, 7)).split(' ')[0];
+  const fila = (txt, val) => `<li><span>${txt}</span><b>${val}</b></li>`;
+  const quedan = f => f.libre < 0 ? `faltan ${dinero(-f.libre)}${f.cambioLibre === 0 ? ' · sin cambio' : ''}`
+    : f.cambioLibre === 0 ? `${dinero(f.libre)} · sin cambio` : `${dinero(f.libre)} · ${dinero(f.porDia).replace(/\.\d\d$/, '')}/día`;
+  const sobra = f => f.sobraSalario == null ? '' : fila(`Del salario del ${dia}, después de pagos`, f.sobraSalario >= 0 ? `te sobran ${dinero(f.sobraSalario)}` : `faltan ${dinero(-f.sobraSalario)}`);
+  const chip = f => f.forma === r.mejor ? `<span class="chip ok">${ic('check')} Mejor opción</span>`
+    : f.veredicto === 'no' ? '<span class="chip bad">No te alcanza</span>' : f.veredicto === 'aprieta' ? '<span class="chip warn">Te aprieta</span>' : '<span class="chip">Te alcanza</span>';
+  const cuerpo = {
+    efectivo: f => [fila('Sale de', esc(f.desde)), fila(`Hasta ${hasta} te quedan`, quedan(f)), fila('Intereses', '$0')],
+    tarjeta: f => [fila('Con', `${esc(f.tarjeta.nombre)} ···${esc(f.tarjeta.ultimos4)}`), fila(`Hasta ${hasta} te quedan`, quedan(f)),
+      fila(`Lo pagas el ${fechaCorta(f.fechaPago)}`, `+${dinero(r.monto)}`), sobra(f),
+      f.interesMinimo ? fila('Si solo pagas el mínimo', `~${dinero(f.interesMinimo)} de intereses al mes`) : ''],
+    cuotas: f => [fila('Con', `${esc(f.tarjeta.nombre)} ···${esc(f.tarjeta.ultimos4)}`), fila(`Cada mes, hasta ${mesDe_(f.fin)}`, `+${dinero(f.cuota)}`),
+      fila(`Hasta ${hasta} te quedan`, quedan(f)), sobra(f),
+      f.liberaAntes && f.liberaDespues && f.liberaAntes !== f.liberaDespues ? fila('Empiezas a pagar menos', `${mesDe_(f.liberaAntes)} → ${mesDe_(f.liberaDespues)}`) : ''],
+  };
+  const formas = r.formas.slice().sort((a, b) => (a.forma === r.mejor ? -1 : b.forma === r.mejor ? 1 : 0));
+  const meses = r.formas.some(f => f.forma === 'cuotas') ? `<div class="pildoras" style="margin-top:14px" aria-label="Número de cuotas">${[3, 6, 12].map(n => `<button class="pildora ${p.meses === n ? 'on' : ''}" data-accion="permitir-meses" data-valor="${n}">${n} cuotas</button>`).join('')}</div>` : '';
+  return `
+    ${r.yaFalta ? `<div class="aviso-fila" style="margin-top:14px">${ic('alerta')}<span class="rt"><b>Ya te faltan ${dinero(r.yaFalta)} para tus pagos</b><small style="white-space:normal">Antes de esta compra, lo que tienes no cubre lo que debes pagar hasta ${hasta}. Si la haces, que no sea con efectivo.</small></span></div>` : ''}
+    ${r.mejor || r.yaFalta ? '' : `<div class="aviso-fila" style="margin-top:14px">${ic('alerta')}<span class="rt"><b>Por ahora no te alcanza</b><small style="white-space:normal">De ninguna forma te queda dinero para tus pagos. Mejor espera a tu salario o junta un poco más.</small></span></div>`}
+    <div class="secc"><h3>Cómo te conviene pagarlo${p.que ? `: ${esc(p.que)}` : ''}</h3></div>
+    ${formas.map(f => `<div class="forma ${f.forma === r.mejor ? 'mejor' : ''}">
+      <div class="forma-top"><span>${esc(f.titulo)}</span>${chip(f)}</div>
+      <ul>${cuerpo[f.forma](f).join('')}</ul></div>`).join('')}
+    ${meses}
+    ${r.formas.length === 1 ? '<p class="mu" style="margin:14px 4px;font-size:12.5px">Agrega tus tarjetas en Deudas para comparar también con tarjeta y en cuotas.</p>'
+      : '<p class="mu" style="margin:14px 4px;font-size:12.5px">Con tarjeta, paga el total en la fecha para no pagar intereses. Las cuotas a tasa cero solo si la tienda las ofrece.</p>'}`;
 }

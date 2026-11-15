@@ -4,6 +4,7 @@ import * as store from './store.js';
 import { ui, aviso, aplicarTema } from './ui.js';
 import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
+import { resultadosPermitir } from './views/mas.js';
 import { FIREBASE, VAPID } from './config.js';
 import { iniciarFirebase, entrarConGoogle, salir, activarNotificaciones, avisoDePrueba } from './firebase.js';
 import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
@@ -173,6 +174,7 @@ const ACCIONES = {
   'quitar-cuenta': () => { ui.filtroCuenta = ''; renderVista(); },
   'ver-revisar': () => { ui.filtro = 'revisar'; ui.filtroCuenta = ''; irA('movimientos'); },
   'ver-categoria': d => { ui.filtro = d.id; ui.filtroCuenta = ''; irA('movimientos'); },
+  'permitir-meses': d => { ui.permitir.meses = Number(d.valor); const res = document.getElementById('permitir-res'); if (res) res.innerHTML = resultadosPermitir(); },
   'ver-dinero': d => { ui.cuentaSel = d.id; renderVista(); },
   'ver-cuenta': d => { ui.filtroCuenta = d.id; ui.filtro = 'todos'; irA('movimientos'); },
   tema: d => { aplicarTema(d.tema); renderVista(); },
@@ -224,6 +226,13 @@ document.addEventListener('keydown', ev => {
 let esperaBusqueda;
 document.addEventListener('input', ev => {
   const el = ev.target;
+  // ¿Me lo puedo permitir?: solo se recalculan los resultados, para no perder el teclado
+  if (el.dataset.permitir) {
+    ui.permitir[el.dataset.permitir] = el.value;
+    const res = document.getElementById('permitir-res');
+    if (res) res.innerHTML = resultadosPermitir();
+    return;
+  }
   if (el.dataset.filtro === 'busqueda') {
     clearTimeout(esperaBusqueda);
     esperaBusqueda = setTimeout(() => {

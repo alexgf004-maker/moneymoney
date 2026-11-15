@@ -7,6 +7,7 @@ import { r2, sumar, dinero } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { cuantoPuedoGastar } from './domain/cuentas.js';
 import { gastosHormiga, suscripciones, lineaDeTiempo, porTerminar } from './domain/habitos.js';
+import { simularCompra } from './domain/permitir.js';
 import { normalizar } from './domain/categorias.js';
 
 export const movs = () => lista('movimientos');
@@ -152,3 +153,9 @@ export function compromisos(hoy = hoyISO()) {
 }
 
 export const porTerminarPronto = (hoy = hoyISO()) => porTerminar(compromisos(hoy), hoy);
+
+// ¿Me lo puedo permitir? Con tus datos reales (ver domain/permitir.js)
+export function simularPermitir(monto, meses = 6, hoy = hoyISO()) {
+  return simularCompra(monto, { cuentas: cuentas(), movs: movs(), tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), estadosDe }, hoy,
+    { meses, compromisos: compromisos(hoy).items });
+}

@@ -261,6 +261,17 @@ test('inicio: cuánto puedo gastar con saldos y salario', async ({ page }) => {
   await expect(g).toContainText('Puedes gastar hasta');
   await expect(g).toContainText('Tienes (Efectivo + Binance)');
   await expect(g).toContainText(/Te alcanza|No te alcanza/);
+  // ¿Me lo puedo permitir?: compara las formas de pago sin perder lo que se escribe
+  await g.getByRole('button', { name: '¿Me lo puedo permitir?' }).click();
+  const monto = page.locator('[data-permitir=monto]');
+  await monto.fill('300');
+  await expect(page.locator('#permitir-res')).toContainText('Efectivo o débito');
+  await expect(page.locator('#permitir-res')).toContainText('Tarjeta, pagando el total');
+  await expect(page.locator('#permitir-res')).toContainText('6 cuotas a tasa cero');
+  await expect(page.locator('.forma.mejor')).toHaveCount(1);
+  await page.getByRole('button', { name: '3 cuotas' }).click();
+  await expect(page.locator('#permitir-res')).toContainText('3 cuotas a tasa cero');
+  await expect(monto).toHaveValue('300');
   expect(errores).toEqual([]);
 });
 

@@ -165,3 +165,10 @@ día de margen) se descartan al llegar (`esDuplicado`).
   saldo (tarjeta premium), lo que entró y salió en el mes, botones "Mover dinero" y "Ajustar saldo", y sus movimientos.
 - Movimiento tipo `transferencia` (desdeId → cuentaId): sale de una cuenta y entra a otra; no es gasto ni ingreso.
 - `saldoMomento`: al poner el saldo se guarda la hora; los movimientos del mismo día creados después sí lo cambian.
+
+## ¿Me lo puedo permitir? (Más, y enlace en "Puedes gastar" del Inicio)
+- Opción 2 de 3 "Comparar formas de pago" (15 nov 2026): escribes el monto y compara efectivo o débito, tarjeta
+  pagando el total y cuotas a tasa cero (3, 6 o 12), con "Mejor opción" marcada.
+- `js/domain/permitir.js` reusa cuantoPuedoGastar con la compra agregada (mismos números que el Inicio): cuánto te
+  queda hasta el salario, cuánto te sobra del salario siguiente, intereses si pagas el mínimo y si las cuotas retrasan
+  el mes desde el que pagas menos.

@@ -137,6 +137,7 @@ function puedesGastar(hoy) {
         ${g.siguientes.map(p => fila(`${fechaCorta(p.fecha)} · ${esc(p.nombre)}`, dinero(p.monto))).join('')}` : ''}
     </details>` : ''}
     ${g.ingreso ? '' : `<button class="link" style="margin-top:6px" data-accion="ir" data-vista="mas" data-sub="fijos">${ic('plus')} Agrega tu salario para calcularlo hasta tu día de pago</button>`}
+    <button class="link" style="margin-top:8px" data-accion="ir" data-vista="mas" data-sub="permitir">${ic('calculadora')} ¿Me lo puedo permitir?</button>
   </div>`;
 }
 
