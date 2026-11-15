@@ -202,7 +202,8 @@ function enviarPush_(cfg, titulo, cuerpo, tag) {
         token: dispositivos[id].token,
         notification: { title: titulo, body: cuerpo },
         data: { tag: tag || 'moneymoney', url: APP_URL },
-        webpush: { fcm_options: { link: APP_URL } },
+        // Urgencia alta y válido por un día: Android no lo retrasa para ahorrar batería
+        webpush: { headers: { Urgency: 'high', TTL: '86400' }, fcm_options: { link: APP_URL } },
       } }),
       muteHttpExceptions: true,
     });
