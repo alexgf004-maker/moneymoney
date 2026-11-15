@@ -262,3 +262,58 @@ test('un extrafinanciamiento fuera del límite no baja el disponible', () => {
   assert.equal(e.deudaTotal, 315);
   assert.equal(e.disponible, 285); // 500 - 100 - 115 (el extrafinanciamiento no cuenta)
 });
+
+test('saldo de una cuenta: ingresos suben, gastos y pagos desde la cuenta bajan', async () => {
+  const { saldoCuenta } = await import('../js/domain/cuentas.js');
+  const c = { id: 'c1', nombre: 'Ahorro', tipo: 'banco', saldoInicial: 1000, fechaSaldo: '2026-11-15' };
+  const movs = [
+    { tipo: 'ingreso', cuentaId: 'c1', monto: 800, fecha: '2026-11-25' },
+    { tipo: 'gasto', cuentaId: 'c1', monto: 20, fecha: '2026-11-16' },
+    { tipo: 'pago', cuentaId: 't1', desdeId: 'c1', monto: 129.11, fecha: '2026-11-17' },
+    { tipo: 'gasto', cuentaId: 'c1', monto: 999, fecha: '2026-11-15' }, // del mismo día del ajuste: ya incluido
+    { tipo: 'gasto', cuentaId: 't1', monto: 50, fecha: '2026-11-16' }, // con tarjeta: no toca la cuenta
+  ];
+  assert.equal(saldoCuenta(c, movs, '2026-11-20'), 850.89);
+  assert.equal(saldoCuenta(c, movs, '2026-11-26'), 1650.89);
+  assert.equal(saldoCuenta({ id: 'x' }, movs, '2026-11-20'), null);
+});
+
+test('cuánto puedo gastar hasta el próximo salario', async () => {
+  const { cuantoPuedoGastar } = await import('../js/domain/cuentas.js');
+  const cuentas = [{ id: 'c1', nombre: 'Ahorro', saldoInicial: 1444.26, fechaSaldo: '2026-11-15' }, { id: 'efectivo', nombre: 'Efectivo', saldoInicial: 96, fechaSaldo: '2026-11-15' }];
+  const t = { ...tarjeta, diaCorte: 23, diaPago: 17, saldoInicial: 300, fechaSaldo: '2026-11-15', saldoCorteInicial: 129.11, pagadoCorteInicial: 0 };
+  const recurrentes = [
+    { id: 's', nombre: 'Salario', tipo: 'ingreso', monto: 800, dia: 25, cuentaId: 'c1', variable: true },
+    { id: 'n', nombre: 'Internet', tipo: 'gasto', monto: 35, dia: 20, cuentaId: 'c1' },
+    { id: 'x', nombre: 'Netflix', tipo: 'gasto', monto: 10, dia: 18, cuentaId: 't1' }, // a la tarjeta: no sale de la cuenta ahora
+  ];
+  const r = cuantoPuedoGastar({ cuentas, movs: [], tarjetas: [t], prestamos: [], recurrentes }, '2026-11-15');
+  assert.equal(r.tienes, 1540.26);
+  assert.equal(r.hasta, '2026-11-25');
+  assert.equal(r.comprometido, 164.11); // 129.11 de la tarjeta + 35 de internet
+  assert.equal(r.libre, 1376.15);
+  assert.equal(r.dias, 10);
+  assert.equal(r.porDia, 137.62);
+});
+
+test('salario variable: se anota el estimado y queda por confirmar', () => {
+  const [m] = recurrentesPendientes([{ id: 's', nombre: 'Salario', tipo: 'ingreso', monto: 800, dia: 25, cuentaId: 'c1', desde: '2026-11-15', variable: true }], new Set(), '2026-11-25');
+  assert.equal(m.monto, 800);
+  assert.equal(m.revisar, true);
+});
+
+test('lo que el próximo salario no alcanza a cubrir se reserva desde ya', async () => {
+  const { cuantoPuedoGastar } = await import('../js/domain/cuentas.js');
+  const cuentas = [{ id: 'c1', nombre: 'Ahorro', saldoInicial: 1000, fechaSaldo: '2026-11-15' }];
+  // Tarjeta: contado 100 el 17 nov; ya compró 900 en este ciclo (se paga el 17 dic) + una cuota de 200 en el corte del 23 nov
+  const t = {
+    ...tarjeta, diaCorte: 23, diaPago: 17, saldoInicial: 1000, fechaSaldo: '2026-11-15', saldoCorteInicial: 100, pagadoCorteInicial: 0,
+    planes: { p: { id: 'p', nombre: 'Lavadora', tipo: 'tasa0', cuota: 200, total: 3, cobradas: 1, corteRef: '2026-10-23' } },
+  };
+  const recurrentes = [{ id: 's', nombre: 'Salario', tipo: 'ingreso', monto: 800, dia: 25, cuentaId: 'c1' }];
+  const r = cuantoPuedoGastar({ cuentas, movs: [], tarjetas: [t], prestamos: [], recurrentes }, '2026-11-15');
+  assert.equal(r.comprometido, 100);
+  assert.equal(r.delSiguiente, 1100); // 900 de compras del ciclo + 200 de la cuota
+  assert.equal(r.reservaSiguiente, 300); // el salario de 800 no alcanza: faltan 300
+  assert.equal(r.libre, 600);
+});

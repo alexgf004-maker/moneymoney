@@ -66,6 +66,8 @@ export function recurrentesPendientes(recurrentes, idsExistentes, hoy) {
       nuevos.push({
         id, fecha, monto: r2(r.monto), tipo: r.tipo || 'gasto', cuentaId: r.cuentaId, desdeId: r.desdeId || null,
         categoriaId: r.categoriaId || 'otros', comercio: r.nombre, origen: 'fijo', recurrenteId: r.id,
+        // Monto variable (p. ej. el salario): se anota el estimado y se pide confirmar cuánto fue
+        ...(r.variable ? { revisar: true, nota: 'Monto estimado: confirma cuánto fue' } : {}),
       });
     }
   }

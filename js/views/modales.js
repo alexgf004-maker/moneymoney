@@ -3,6 +3,7 @@ import { obtener } from '../store.js';
 import { movs, opcionesPagoCon, opcionesDeuda, opcionesCuentas, BANCOS, nombreCuenta, estadoDe, tarjetasDetectadas } from '../consultas.js';
 import { CATEGORIAS, INGRESOS, patronSugerido } from '../domain/categorias.js';
 import { estadoPrestamo, tablaPagos, partesCuota } from '../domain/prestamo.js';
+import { saldoCuenta } from '../domain/cuentas.js';
 import { dinero } from '../domain/dinero.js';
 import { hoyISO, fechaCorta } from '../domain/fechas.js';
 
@@ -192,7 +193,8 @@ function recurrente({ id }) {
       ${deudas.length ? campo('Deuda', selector('deuda', deudas, r?.tipo === 'pago' ? r.cuentaId : deudas[0][0])) : '<p class="mu">Primero agrega una tarjeta o un préstamo.</p>'}
       ${campo('Se paga desde', selector('desdeId', opcionesCuentas(), r?.desdeId || 'efectivo'))}
     </div>
-    <div class="solo-ingreso">${campo('Entra a', selector('cuentaIngreso', opcionesCuentas(), r?.tipo === 'ingreso' ? r.cuentaId : 'efectivo'))}</div>
+    <div class="solo-ingreso">${campo('Entra a', selector('cuentaIngreso', opcionesCuentas(), r?.tipo === 'ingreso' ? r.cuentaId : 'efectivo'))}
+      ${marca('variable', 'El monto cambia cada vez: anotar el estimado y preguntarme cuánto fue', !!r?.variable)}</div>
     ${marca('activo', 'Activo', r?.activo !== false)}
     ${pie(botonBorrar('recurrentes', id))}
   </form>`;
@@ -201,8 +203,11 @@ function recurrente({ id }) {
 
 function cuenta({ id }) {
   const c = id ? obtener('cuentas', id) : null;
+  const saldo = c ? saldoCuenta(c, movs(), hoyISO()) : null;
   const cuerpo = `<form data-form="cuenta" data-id="${id || ''}">
     ${campo('Nombre', entrada('nombre', c?.nombre || '', { req: true, ph: 'Ej. Ahorro Agrícola' }))}
+    ${campo(c?.tipo === 'efectivo' ? '¿Cuánto efectivo tienes hoy?' : '¿Cuánto tienes hoy en esta cuenta?', entrada('saldoHoy', saldo != null ? saldo.toFixed(2) : '', { tipo: 'number', paso: '0.01', ph: '0.00' }),
+      saldo != null ? 'Cámbialo cuando no cuadre (por ejemplo, después de contar tu efectivo). Desde aquí la app lo va actualizando sola.' : 'Desde aquí la app lo va actualizando: suma tus ingresos y resta tus gastos y pagos.')}
     ${c?.tipo === 'efectivo' ? '<input type="hidden" name="tipo" value="efectivo">' : `
       ${campo('Banco', selector('banco', BANCOS, c?.banco || 'agricola'))}
       <div class="fila-campos">

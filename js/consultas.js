@@ -5,6 +5,7 @@ import { estadoTarjeta } from './domain/tarjetas.js';
 import { estadoPrestamo } from './domain/prestamo.js';
 import { r2, sumar } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
+import { cuantoPuedoGastar } from './domain/cuentas.js';
 
 export const movs = () => lista('movimientos');
 export const tarjetas = () => lista('tarjetas').sort((a, b) => (a.banco + a.nombre).localeCompare(b.banco + b.nombre));
@@ -109,4 +110,9 @@ export function deudasParaPlan(hoy = hoyISO()) {
       id: p.id, nombre: p.nombre, saldo: e.saldo, tasaAnual: p.tasaAnual || 0, minimo: e.capitalEInteres,
     })),
   ];
+}
+
+// ¿Cuánto puedo gastar hasta el próximo salario? (domain/cuentas.js)
+export function disponibleParaGastar(hoy = hoyISO()) {
+  return cuantoPuedoGastar({ cuentas: cuentas(), movs: movs(), tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), estadosDe }, hoy);
 }

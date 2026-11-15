@@ -5,6 +5,7 @@ import { CATEGORIAS, categoria } from '../domain/categorias.js';
 import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
 import { hoyISO, mesDe, nombreMes, fechaCorta } from '../domain/fechas.js';
+import { saldoCuenta } from '../domain/cuentas.js';
 
 const SUBS = {
   presupuesto: ['Presupuesto', presupuesto],
@@ -133,12 +134,15 @@ function fijos() {
 }
 
 function cuentasHTML() {
+  const hoy = hoyISO();
+  const saldos = cuentas().map(c => ({ c, s: saldoCuenta(c, movs(), hoy) }));
+  const total = sumar(saldos.filter(x => x.s != null).map(x => x.s));
   return `
-    <p class="mu" style="margin:0 4px 14px">Desde dónde pagas lo que no va a tarjeta de crédito. Si agregas los últimos 4 de tu tarjeta de débito, también se reconocen sus correos.</p>
-    <div class="card">${cuentas().map(c => `<button class="row" data-accion="modal" data-tipo="cuenta" data-id="${c.id}">
+    <p class="mu" style="margin:0 4px 14px">Tu dinero en cuentas y efectivo. La app lo va actualizando con tus ingresos, gastos y pagos; si no cuadra, toca la cuenta y ajústalo.${saldos.some(x => x.s != null) ? ` Total: <b>${dinero(total)}</b>.` : ''}</p>
+    <div class="card">${saldos.map(({ c, s }) => `<button class="row" data-accion="modal" data-tipo="cuenta" data-id="${c.id}">
       ${tile(c.tipo === 'efectivo' ? 'billete' : 'cartera')}
-      <span class="rt"><b>${esc(c.nombre)}</b><small>${c.tipo === 'efectivo' ? 'Efectivo' : esc(nombreBanco(c.banco))}${c.ultimos4 ? ` · débito ···${esc(c.ultimos4)}` : ''}</small></span>
-      <span class="mu">${ic('chevron-right')}</span>
+      <span class="rt"><b>${esc(c.nombre)}</b><small>${c.tipo === 'efectivo' ? 'Efectivo' : esc(nombreBanco(c.banco))}${c.cuenta4 ? ` · cuenta ···${esc(c.cuenta4)}` : ''}${c.ultimos4 ? ` · débito ···${esc(c.ultimos4)}` : ''}</small></span>
+      <span class="amt">${s != null ? dinero(s) : '<span class="link">Poner saldo</span>'}</span>
     </button>`).join('')}</div>
     <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="cuenta">${ic('plus')} Agregar cuenta</button>`;
 }

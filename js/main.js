@@ -10,6 +10,7 @@ import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrante
 import { recurrentesPendientes } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta, movimientoDeAjuste, ultimoCorte } from './domain/tarjetas.js';
+import { saldoCuenta } from './domain/cuentas.js';
 import { leerMonto, r2 } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { nombreCuenta, estadosDe, estadoDe } from './consultas.js';
@@ -320,14 +321,19 @@ const FORMULARIOS = {
     store.guardar('recurrentes', {
       id, nombre: f.nombre.trim(), monto: num(f.monto), dia, tipo, cuentaId, desdeId: tipo === 'pago' ? f.desdeId : null,
       categoriaId: tipo === 'gasto' ? f.categoriaId || 'otros' : tipo === 'ingreso' ? 'salario' : null,
-      activo: !!f.activo, desde: previo?.desde || hoyISO(),
+      activo: !!f.activo, desde: previo?.desde || hoyISO(), variable: tipo === 'ingreso' && !!f.variable,
     });
     generarFijos();
   },
 
   cuenta(f, form) {
     const id = form.dataset.id || store.nuevoId('c');
-    store.guardar('cuentas', { ...(store.obtener('cuentas', id) || {}), id, nombre: f.nombre.trim(), tipo: f.tipo, banco: f.banco || null, ultimos4: f.ultimos4 || null, cuenta4: f.cuenta4 || null });
+    const previo = store.obtener('cuentas', id) || {};
+    const c = { ...previo, id, nombre: f.nombre.trim(), tipo: f.tipo, banco: f.banco || null, ultimos4: f.ultimos4 || null, cuenta4: f.cuenta4 || null };
+    // Saldo de hoy: si cambió (o es la primera vez), se toma como nuevo punto de partida
+    const saldoHoy = num(f.saldoHoy);
+    if (saldoHoy != null && saldoHoy !== saldoCuenta(previo, store.lista('movimientos'), hoyISO())) Object.assign(c, { saldoInicial: saldoHoy, fechaSaldo: hoyISO() });
+    store.guardar('cuentas', c);
   },
 
   regla(f, form) {
