@@ -4,7 +4,7 @@
 
 import { ui, esc, ic, tile, lin, top, sec, montoGrande } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas } from '../consultas.js';
+import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas, disponibleParaGastar } from '../consultas.js';
 import { totalGastado, porCategoria, gastadoMismoDia, estadoPresupuestos, proximosPagos } from '../domain/resumen.js';
 import { categoria } from '../domain/categorias.js';
 import { dinero, sumar } from '../domain/dinero.js';
@@ -35,6 +35,7 @@ export function vistaInicio() {
   return `${encabezado}
     ${entrar}
     ${primero ? tarjetaPago(primero, agenda, hoy) : alDia(hoy)}
+    ${puedesGastar(hoy)}
     <nav class="acts" aria-label="Accesos rápidos">
       <button class="act" data-accion="modal" data-tipo="movimiento">${ic('plus')}<div>Anotar</div></button>
       <button class="act" data-accion="ir" data-vista="deudas" data-tab="tarjetas">${ic('pago')}<div>Pagar</div></button>
@@ -80,6 +81,40 @@ function alDia(hoy) {
     <div class="pc-sub">en los próximos 30 días</div>
     ${siguiente ? `<div class="pc-div"></div><div class="pc-sub">${ic('calendario')} Próximo corte: ${esc(siguiente.t.nombre)}, ${fechaCorta(siguiente.c)}</div>` : ''}
   </section>`;
+}
+
+// ---------- ¿Cuánto puedo gastar? (opción 2 "Tarjeta bajo el pago", elegida el 15 nov 2026) ----------
+
+function puedesGastar(hoy) {
+  const g = disponibleParaGastar(hoy);
+  if (!g) {
+    return `<button class="aviso-fila" data-accion="ir" data-vista="mas" data-sub="cuentas">${ic('cartera')}<span class="rt"><b>¿Cuánto puedes gastar?</b><small style="white-space:normal">Pon cuánto tienes en tus cuentas y en efectivo y te lo calculo hasta tu próximo salario.</small></span><span class="mu">${ic('chevron-right')}</span></button>`;
+  }
+  const dia = Number(g.hasta.slice(8));
+  const hastaTxt = g.ingreso ? `el ${dia}` : 'fin de mes';
+  const fila = (txt, monto, clase = '') => `<div class="caja-fila desglose-fila"><span class="mu">${txt}</span><b class="${clase}">${monto}</b></div>`;
+  return `<div class="card pad gastar">
+    <div class="caja-fila">
+      <div><span class="mu" style="font-size:12.5px">Puedes gastar hasta ${hastaTxt}</span>
+        <div class="gastar-cifra ${g.alcanza ? '' : 'bad'}">${montoGrande(dinero(g.alcanza ? g.libre : 0))}</div></div>
+      <div style="text-align:right">
+        ${g.alcanza ? `<span class="chip ok">${ic('check')} Te alcanza</span>` : `<span class="chip bad">${ic('alerta')} No te alcanza</span>`}
+        <b class="gastar-dia">${g.alcanza ? `${dinero(g.porDia).replace(/\.\d\d$/, '')}<small> /día</small>` : `faltan ${dinero(-g.libre)}`}</b>
+      </div>
+    </div>
+    <div class="desglose">
+      ${fila(`Tienes (${g.cuentas.map(x => esc(x.c.nombre)).join(' + ')})`, dinero(g.tienes))}
+      ${fila(`Pagos antes ${g.ingreso ? `del ${dia}` : 'de fin de mes'}`, `− ${dinero(g.comprometido)}`)}
+      ${g.reservaSiguiente ? fila(`Reserva: lo que tu salario no cubre después del ${dia}`, `− ${dinero(g.reservaSiguiente)}`) : ''}
+      <div class="caja-fila desglose-fila desglose-total"><b>Libre ${g.ingreso ? `hasta el ${dia}` : 'hasta fin de mes'}</b><b class="${g.alcanza ? 'ok' : 'bad'}">${dinero(g.libre)}</b></div>
+    </div>
+    ${g.pagos.length || g.siguientes.length ? `<details class="gastar-pagos"><summary>Ver qué pagos</summary>
+      ${g.pagos.map(p => fila(`${fechaCorta(p.fecha)} · ${esc(p.nombre)}`, dinero(p.monto))).join('')}
+      ${g.siguientes.length ? `<small class="mu" style="margin:8px 0 2px">Después del ${dia} (los cubre tu salario de ${dinero(g.ingreso?.monto || 0)}${g.reservaSiguiente ? ' y la reserva' : ''})</small>
+        ${g.siguientes.map(p => fila(`${fechaCorta(p.fecha)} · ${esc(p.nombre)}`, dinero(p.monto))).join('')}` : ''}
+    </details>` : ''}
+    ${g.ingreso ? '' : `<button class="link" style="margin-top:6px" data-accion="ir" data-vista="mas" data-sub="fijos">${ic('plus')} Agrega tu salario para calcularlo hasta tu día de pago</button>`}
+  </div>`;
 }
 
 // ---------- Pendientes de configuración: una sola línea ----------

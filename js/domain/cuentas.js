@@ -48,8 +48,9 @@ export function cuantoPuedoGastar({ cuentas, movs, tarjetas, prestamos, recurren
   // El período siguiente: del próximo salario al que sigue (un mes después)
   const hasta2 = sumarMeses(hasta, 1);
   const todos = pagosConocidos({ cuentas, movs, tarjetas, prestamos, recurrentes, estadosDe }, hoy, hasta2);
-  const pagos = todos.filter(p => p.fecha <= hasta);
-  const siguientes = todos.filter(p => p.fecha > hasta);
+  // Lo que vence el mismo día del salario ya se paga con el salario: va al período siguiente
+  const pagos = ingreso ? todos.filter(p => p.fecha < hasta) : todos.filter(p => p.fecha <= hasta);
+  const siguientes = todos.filter(p => !pagos.includes(p) && p.fecha < hasta2);
   const comprometido = sumar(pagos.map(p => p.monto));
   // Lo que el próximo salario no alcanza a cubrir del período siguiente también se reserva desde ya
   const delSiguiente = sumar(siguientes.map(p => p.monto));

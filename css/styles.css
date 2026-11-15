@@ -346,3 +346,18 @@ form[data-tipo="extra"] .solo-extra { display: block; }
 }
 .toast.error { background: var(--bad); color: #fff; }
 .toast.fuera { opacity: 0; }
+
+/* ---------- ¿Cuánto puedo gastar? (Inicio, bajo el próximo pago) ---------- */
+.gastar { margin-top: 14px; }
+.gastar-cifra { font-size: 28px; font-weight: 500; letter-spacing: -.5px; line-height: 1.2; margin-top: 2px; }
+.gastar-cifra small { display: inline; font-size: 16px; opacity: .6; }
+.gastar-dia { display: block; font-size: 20px; font-weight: 500; margin-top: 8px; }
+.gastar-dia small { display: inline; font-size: 12px; color: var(--mu); font-weight: 400; }
+.desglose { margin-top: 10px; }
+.desglose-fila { padding: 5px 0; font-size: 13px; }
+.desglose-fila b { display: inline; font-size: 13px; font-weight: 600; }
+.desglose-total { border-top: 1px solid var(--bd); margin-top: 4px; padding-top: 9px; }
+.gastar-pagos { margin-top: 8px; }
+.gastar-pagos summary { cursor: pointer; color: var(--oro); font-size: 13px; font-weight: 500; padding: 4px 0; list-style: none; }
+.gastar-pagos summary::-webkit-details-marker { display: none; }
+.gastar-pagos[open] summary { margin-bottom: 4px; }

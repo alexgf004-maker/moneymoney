@@ -225,3 +225,21 @@ test('inicio: el próximo pago es lo primero, luego la deuda y el mes', async ({
   await expect(page.locator('form[data-form=pago]')).toBeVisible();
   expect(errores).toEqual([]);
 });
+
+test('inicio: cuánto puedo gastar con saldos y salario', async ({ page }) => {
+  const errores = await conEjemplo(page);
+  // Sin saldos todavía: invita a ponerlos
+  await expect(page.getByRole('button', { name: /¿Cuánto puedes gastar\?/ })).toBeVisible();
+  await nav(page, 'Más');
+  await page.getByRole('button', { name: /Cuentas y efectivo/ }).click();
+  await page.getByRole('button', { name: /Efectivo/ }).click();
+  await page.locator('form[data-form=cuenta] [name=saldoHoy]').fill('1500');
+  await page.locator('form[data-form=cuenta]').getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.locator('#vista')).toContainText('$1,500.00');
+  await nav(page, 'Inicio');
+  const g = page.locator('.gastar');
+  await expect(g).toContainText('Puedes gastar hasta');
+  await expect(g).toContainText('Tienes (Efectivo)');
+  await expect(g).toContainText(/Te alcanza|No te alcanza/);
+  expect(errores).toEqual([]);
+});
