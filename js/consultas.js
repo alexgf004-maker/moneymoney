@@ -6,7 +6,7 @@ import { estadoPrestamo } from './domain/prestamo.js';
 import { r2, sumar } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { cuantoPuedoGastar } from './domain/cuentas.js';
-import { gastosHormiga, suscripciones, lineaDeTiempo } from './domain/habitos.js';
+import { gastosHormiga, suscripciones, lineaDeTiempo, porTerminar } from './domain/habitos.js';
 import { normalizar } from './domain/categorias.js';
 
 export const movs = () => lista('movimientos');
@@ -130,16 +130,16 @@ export function compromisos(hoy = hoyISO()) {
   const items = [];
   for (const t of tarjetas()) {
     for (const p of estadoTarjeta(t, movs(), hoy, estadosDe(t)).planes.filter(x => x.activo)) {
-      items.push({ nombre: p.nombre, detalle: `${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · ${t.nombre} · cuota ${p.cobradasHoy} de ${p.total}`, tipo: 'cuotas', mensual: p.cuota, fin: p.fin });
+      items.push({ nombre: p.nombre, detalle: `${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · ${t.nombre} · cuota ${p.cobradasHoy} de ${p.total}`, tipo: 'cuotas', mensual: p.cuota, fin: p.fin, hechas: p.cobradasHoy, total: p.total, donde: t.nombre });
     }
   }
   for (const p of prestamos()) {
     const e = estadoPrestamo(p, movs(), hoy);
-    if (e.saldo > 0) items.push({ nombre: p.nombre, detalle: `Préstamo · ${e.cuotasPagadas} de ${e.cuotasTotales} cuotas`, tipo: 'prestamo', mensual: e.cuota, fin: e.fechaFin });
+    if (e.saldo > 0) items.push({ nombre: p.nombre, detalle: `Préstamo · ${e.cuotasPagadas} de ${e.cuotasTotales} cuotas`, tipo: 'prestamo', mensual: e.cuota, fin: e.fechaFin, hechas: e.cuotasPagadas, total: e.cuotasTotales, donde: 'Préstamo' });
   }
   const idsPrestamos = new Set(prestamos().map(p => p.id));
   for (const r of recurrentes().filter(x => x.activo !== false && x.tipo !== 'ingreso' && !idsPrestamos.has(x.cuentaId))) {
-    items.push({ nombre: r.nombre, detalle: 'Pago fijo', tipo: 'fijo', mensual: r.monto, fin: r.hasta || null });
+    items.push({ nombre: r.nombre, detalle: 'Pago fijo', tipo: 'fijo', mensual: r.monto, fin: r.hasta || null, donde: 'Pago fijo' });
   }
   for (const s of suscripcionesActuales(hoy).lista.filter(x => x.origen === 'detectada' && !x.cancelar)) {
     if (items.some(i => normalizar(i.nombre).includes(s.clave))) continue;
@@ -147,3 +147,5 @@ export function compromisos(hoy = hoyISO()) {
   }
   return lineaDeTiempo(items, hoy);
 }
+
+export const porTerminarPronto = (hoy = hoyISO()) => porTerminar(compromisos(hoy), hoy);

@@ -379,3 +379,19 @@ test('préstamo de 60 cuotas termina en la 60, sin cuota extra de centavos', () 
   assert.equal(e.cuotasTotales, 60);
   assert.equal(e.cargos, 12.39);
 });
+
+test('estás por terminar: lo que acaba en 12 meses, con avance y lo que quedará al mes', async () => {
+  const { lineaDeTiempo, porTerminar } = await import('../js/domain/habitos.js');
+  const linea = lineaDeTiempo([
+    { nombre: 'Lavadora', tipo: 'cuotas', mensual: 177.66, fin: '2026-12-21', hechas: 1, total: 3 },
+    { nombre: 'Extra OLE', tipo: 'cuotas', mensual: 56.87, fin: '2027-01-09', hechas: 10, total: 12 },
+    { nombre: 'Celular', tipo: 'cuotas', mensual: 4.69, fin: '2028-10-05', hechas: 2, total: 24 },
+    { nombre: 'Préstamo', tipo: 'prestamo', mensual: 180.93, fin: '2031-07-27', hechas: 4, total: 60 },
+  ], '2026-11-15');
+  const p = porTerminar(linea, '2026-11-15');
+  assert.deepEqual(p.items.map(i => [i.nombre, i.libreDesde]), [['Lavadora', '2027-01'], ['Extra OLE', '2027-02']]);
+  assert.equal(p.desde, '2027-02');
+  assert.equal(p.mensualHoy, 420.15);
+  assert.equal(p.quedaAlMes, 185.62);
+  assert.equal(porTerminar(lineaDeTiempo([{ nombre: 'Préstamo', mensual: 100, fin: '2031-01-01' }], '2026-11-15'), '2026-11-15'), null);
+});

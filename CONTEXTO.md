@@ -144,3 +144,10 @@ día de margen) se descartan al llegar (`esDuplicado`).
 - Importar estados de cuenta en PDF (se necesita un ejemplo de cada banco).
 - Clasificar con IA los comercios desconocidos (opcional).
 - Recordatorios de pago fuera de la app (por ejemplo, un correo diario desde el mismo script).
+
+## Estás por terminar (Inicio)
+- Elegida la opción 2 de 3 (15 nov 2026): sección "Estás por terminar" en el Inicio, después de "Lo que viene".
+- Muestra lo que se termina de pagar en los próximos 12 meses (cuotas, préstamo, pagos fijos con fecha de fin),
+  cada uno con sus cuotas en puntos (barra si son más de 24), cuánto se libera al mes y en qué mes es la última.
+- Abajo: "Desde {mes} pagarás al mes $X" contra lo que pagas hoy. Si nada termina en 12 meses, la sección no aparece.
+- Lógica en `porTerminar` (js/domain/habitos.js); "Detalle" lleva a Más > Cuándo termino de pagar.

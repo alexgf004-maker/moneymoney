@@ -4,7 +4,7 @@
 
 import { ui, esc, ic, tile, lin, top, sec, montoGrande } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas, disponibleParaGastar, hormigaDelMes, suscripcionesActuales } from '../consultas.js';
+import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas, disponibleParaGastar, hormigaDelMes, suscripcionesActuales, porTerminarPronto } from '../consultas.js';
 import { totalGastado, porCategoria, gastadoMismoDia, estadoPresupuestos, proximosPagos } from '../domain/resumen.js';
 import { categoria } from '../domain/categorias.js';
 import { dinero, sumar } from '../domain/dinero.js';
@@ -45,6 +45,7 @@ export function vistaInicio() {
     </nav>
     ${pendientes(m)}
     ${loQueViene(primero && urgencia(primero, hoy) === 'urgente' ? resto.filter(a => urgencia(a, hoy) !== 'urgente') : resto, hoy)}
+    ${estasPorTerminar(hoy)}
     ${tuDeuda(hoy)}
     ${tuMes(m, hoy)}
   `;
@@ -187,6 +188,32 @@ export function filaAgenda(a, hoy = hoyISO()) {
     <span class="rt"><b>${esc(a.titulo)}</b><small>${estado}${fechaCorta(a.fecha)} · ${esc(a.detalle)}</small></span>
     <span class="amt">${dinero(a.monto)}</span>
   </button>`;
+}
+
+// ---------- Estás por terminar (opción 2, elegida el 15 nov 2026) ----------
+// Cada cosa que se termina de pagar en los próximos 12 meses, con sus cuotas en puntos y cuánto se libera al mes.
+
+function estasPorTerminar(hoy) {
+  const p = porTerminarPronto(hoy);
+  if (!p) return '';
+  const mesTxt = mes => nombreMes(mes).split(' ')[0];
+  const filas = p.items.map(i => {
+    const conCuotas = i.total > 0;
+    const avance = conCuotas ? (i.total <= 24
+      ? `<div class="puntos" aria-hidden="true">${Array.from({ length: i.total }, (_, k) => `<span class="${k < i.hechas ? 'ok' : ''}"></span>`).join('')}</div>`
+      : lin(i.hechas / i.total, '', 'var(--ok)')) : '';
+    const pie = conCuotas ? `${i.hechas} de ${i.total} cuotas · última en ${mesTxt(i.fin.slice(0, 7))}` : `Último pago en ${mesTxt(i.fin.slice(0, 7))}`;
+    return `<div class="prog">
+      <div class="prog-top"><span><b>${esc(i.nombre)}</b>${i.donde ? ` <span class="mu">· ${esc(i.donde)}</span>` : ''}</span><span class="ok prog-monto">+${dinero(i.mensual)}/mes</span></div>
+      ${avance}<small class="mu">${pie}</small></div>`;
+  }).join('');
+  return `${sec('Estás por terminar', `<button class="link" data-accion="ir" data-vista="mas" data-sub="compromisos">Detalle</button>`)}
+    <div class="card pad por-terminar">
+      ${filas}
+      <div class="caja" style="margin-top:14px"><div class="caja-fila" style="align-items:center">
+        <span class="mu">Desde ${mesTxt(p.desde)} pagarás al mes<br>hoy pagas ${dinero(p.mensualHoy)}</span>
+        <b class="ok" style="font-size:18px;font-weight:600;white-space:nowrap">${dinero(p.quedaAlMes)}</b></div></div>
+    </div>`;
 }
 
 // ---------- 2. Tu deuda ----------

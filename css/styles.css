@@ -387,3 +387,13 @@ form[data-tipo="extra"] .solo-extra { display: block; }
 .row.barra-pronto::before { background: #f59e0b; }
 .tc.urgente { box-shadow: 0 0 0 2px #ef4444; border-color: transparent; }
 .tc.pronto { box-shadow: 0 0 0 2px #f59e0b; border-color: transparent; }
+
+/* Estás por terminar: avance de cuotas en puntos */
+.prog + .prog { margin-top: 14px; }
+.prog-top { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; }
+.prog-top b { font-weight: 600; }
+.prog-monto { font-weight: 600; white-space: nowrap; }
+.prog small { display: block; margin-top: 4px; }
+.puntos { display: flex; gap: 4px; margin-top: 6px; }
+.puntos span { flex: 1; height: 7px; border-radius: 4px; background: var(--sf2); }
+.puntos span.ok { background: var(--ok); }

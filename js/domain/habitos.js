@@ -104,3 +104,15 @@ export function lineaDeTiempo(items, hoy) {
   });
   return { mensualHoy, items: activos.sort((a, b) => (a.fin || '9999').localeCompare(b.fin || '9999')), hitos, sinFin: sumar(activos.filter(i => !i.fin).map(i => i.mensual)) };
 }
+
+// "Estás por terminar" (opción 2, elegida el 15 nov 2026): lo que se termina de pagar en los próximos `meses`,
+// con su avance de cuotas, y cuánto se pagará al mes cuando todo eso se acabe.
+export function porTerminar(linea, hoy, meses = 12) {
+  const limite = sumarMeses(hoy.slice(0, 7) + '-01', meses);
+  const items = linea.items.filter(i => i.fin && i.fin < limite)
+    .map(i => ({ ...i, libreDesde: mesDe(sumarMeses(i.fin, 1)) }));
+  if (!items.length) return null;
+  const ultimo = items[items.length - 1].libreDesde;
+  const hito = linea.hitos.find(h => h.mes === ultimo);
+  return { items, desde: ultimo, quedaAlMes: hito ? hito.quedaAlMes : linea.mensualHoy, mensualHoy: linea.mensualHoy, libera: sumar(items.map(i => i.mensual)) };
+}
