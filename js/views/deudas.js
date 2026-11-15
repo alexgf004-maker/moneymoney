@@ -49,12 +49,15 @@ function tarjetasHTML(d, hoy) {
   const det = detectadasHTML();
   if (!d.ts.length && det) return det + `<button class="link" data-accion="modal" data-tipo="tarjeta">${ic('plus')} Agregar otra tarjeta a mano</button>`;
   if (!d.ts.length) return `<div class="card">${vacio('tarjeta', 'Sin tarjetas', 'Agrega tus tarjetas para saber cuánto y cuándo pagar.', `<button class="btn sm" data-accion="modal" data-tipo="tarjeta">${ic('plus')} Agregar tarjeta</button>`)}</div>`;
-  return det + d.ts.map(({ t, e }) => {
+  // Primero lo que vence antes; las que están al día, al final
+  const orden = [...d.ts].sort((a, b) => (a.e.alDia - b.e.alDia) || a.e.fechaPago.localeCompare(b.e.fechaPago));
+  return det + orden.map(({ t, e }) => {
     let fecha;
+    const urg = e.alDia ? '' : e.vencido || e.diasParaPago <= 3 ? 'urgente' : e.diasParaPago <= 7 ? 'pronto' : '';
     if (e.alDia) fecha = `<b class="ok">Pagado</b>`;
     else if (e.vencido) fecha = `<b class="bad">Venció el ${fechaCorta(e.fechaPago)}</b>`;
-    else fecha = `<b class="${e.diasParaPago <= 3 ? 'warn' : ''}">${fechaCorta(e.fechaPago)} · ${cuandoEs(e.fechaPago, hoy)}</b>`;
-    return `<article class="tc">
+    else fecha = `<b class="${urg === 'urgente' ? 'bad' : urg === 'pronto' ? 'warn' : ''}">${fechaCorta(e.fechaPago)} · ${cuandoEs(e.fechaPago, hoy)}</b>`;
+    return `<article class="tc ${urg}">
       <div class="tc-top">
         <div class="tc-n"><span class="glifo g-${esc(t.banco || 'otro')}">${ic('tarjeta')}</span><div><b>${esc(t.nombre)}</b><small>···${esc(t.ultimos4)} · ${esc(nombreBanco(t.banco))}</small></div></div>
         <button class="ib chico" data-accion="modal" data-tipo="tarjeta" data-id="${t.id}" aria-label="Editar tarjeta">${ic('editar')}</button>

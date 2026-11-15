@@ -43,7 +43,7 @@ export function vistaInicio() {
       <button class="act" data-accion="ir" data-vista="deudas" data-tab="plan">${ic('escalera')}<div>Plan</div></button>
     </nav>
     ${pendientes(m)}
-    ${loQueViene(resto, hoy)}
+    ${loQueViene(primero && urgencia(primero, hoy) === 'urgente' ? resto.filter(a => urgencia(a, hoy) !== 'urgente') : resto, hoy)}
     ${tuDeuda(hoy)}
     ${tuMes(m, hoy)}
   `;
@@ -51,23 +51,44 @@ export function vistaInicio() {
 
 // ---------- 1. El próximo pago (tarjeta premium) ----------
 
+// Urgencia de un pago: vencido o a 3 días o menos = urgente (rojo); a 7 días o menos = pronto (ámbar)
+export function urgencia(a, hoy) {
+  const dias = diasHasta(a.fecha, hoy);
+  return a.vencido || dias < 0 || dias <= 3 ? 'urgente' : dias <= 7 ? 'pronto' : '';
+}
+
+// Opción 3 "Cuenta regresiva" (elegida el 15 nov 2026): la tarjeta sigue en grafito; si es urgente lleva borde rojo
+// y un anillo con los días que faltan. Los demás urgentes van dentro de la misma tarjeta, para que ninguno se esconda.
 function tarjetaPago(p, agenda, hoy) {
   const dias = diasHasta(p.fecha, hoy);
+  const urgente = urgencia(p, hoy) === 'urgente';
+  const otrosUrgentes = agenda.filter(a => a !== p && urgencia(a, hoy) === 'urgente');
   const cuando = p.vencido ? 'Vencido' : dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `En ${dias} días`;
-  const urgente = p.vencido || dias <= 3;
-  const en30 = sumar(agenda.map(a => a.monto));
+  const totalUrgente = sumar([p, ...otrosUrgentes].map(a => a.monto));
   const segundo = p.tipo === 'tarjeta'
     ? `<div>${p.minimoExacto ? 'Mínimo' : 'Mínimo aprox.'}<b>${dinero(p.minimo)}</b></div>`
     : `<div>${p.tipo === 'prestamo' ? 'Préstamo' : 'Pago fijo'}<b>${esc(p.detalle)}</b></div>`;
-  return `<section class="pc">
+  const tercero = otrosUrgentes.length
+    ? `<div>Urgente en total<b>${dinero(totalUrgente)}</b></div>`
+    : `<div>Por pagar en 30 días<b>${dinero(sumar(agenda.map(a => a.monto)))}</b></div>`;
+  // Anillo: se llena a medida que se acerca la fecha (7 días = vacío, hoy o vencido = lleno)
+  const lleno = p.vencido || dias <= 0 ? 100 : Math.round((7 - Math.min(dias, 7)) / 7 * 100);
+  const anillo = urgente ? `<div class="anillo" style="--lleno:${lleno}%" aria-label="${cuando}"><span>${p.vencido ? `<b style="font-size:15px">Vencido</b>` : dias <= 0 ? '<b style="font-size:20px">Hoy</b>' : `<b>${dias}</b><small>${dias === 1 ? 'día' : 'días'}</small>`}</span></div>` : '';
+  return `<section class="pc ${urgente ? 'borde-rojo' : ''}">
     <div class="pc-top">
       <span class="pc-lbl">${p.vencido ? 'Pago vencido' : 'Tu próximo pago'}</span>
-      <span class="badge ${urgente ? 'rojo' : ''}">${ic(urgente ? 'alerta' : 'calendario')} ${cuando}</span>
+      <span class="badge ${urgente ? 'rojo' : ''}">${ic(urgente ? 'alerta' : 'calendario')} ${urgente ? (otrosUrgentes.length ? `${otrosUrgentes.length + 1} urgentes` : 'Urgente') : cuando}</span>
     </div>
-    <div class="big">${montoGrande(dinero(p.monto))}</div>
-    <div class="pc-sub">${esc(p.titulo)} · ${p.vencido ? 'venció' : 'vence'} el ${DIAS[deISO(p.fecha).getDay()]} ${fechaCorta(p.fecha)}</div>
+    <div class="pc-cuenta">
+      <div><div class="big">${montoGrande(dinero(p.monto))}</div>
+        <div class="pc-sub">${esc(p.titulo)}${urgente ? '<br>' : ' · '}${p.vencido ? 'venció' : 'vence'} el ${DIAS[deISO(p.fecha).getDay()]} ${fechaCorta(p.fecha)}</div></div>
+      ${anillo}
+    </div>
+    ${otrosUrgentes.length ? `<div class="pc-div"></div><div class="pc-lbl" style="margin-bottom:6px">También vencen pronto</div>
+      ${otrosUrgentes.map(a => `<button class="pc-urg" data-accion="${a.tipo === 'fijo' ? 'modal' : 'pagar'}" ${a.tipo === 'fijo' ? 'data-tipo="recurrente"' : ''} data-id="${a.id}">
+        <span>${esc(a.titulo)}<small>${a.vencido ? 'Vencido' : diasHasta(a.fecha, hoy) <= 0 ? 'Hoy' : `${DIAS[deISO(a.fecha).getDay()]} ${fechaCorta(a.fecha)}`}</small></span><b>${dinero(a.monto)}</b></button>`).join('')}` : ''}
     <div class="pc-div"></div>
-    <div class="mini">${segundo}<div>Por pagar en 30 días<b>${dinero(en30)}</b></div></div>
+    <div class="mini">${segundo}${tercero}</div>
     ${p.tipo === 'fijo' ? '' : `<button class="pc-btn" data-accion="pagar" data-id="${p.id}">${ic('pago')} Registrar pago</button>`}
   </section>`;
 }
@@ -153,12 +174,13 @@ function loQueViene(resto, hoy) {
 export function filaAgenda(a, hoy = hoyISO()) {
   const icono = a.tipo === 'tarjeta' ? 'tarjeta' : a.tipo === 'prestamo' ? 'banco' : 'repetir';
   const dias = diasHasta(a.fecha, hoy);
+  const u = urgencia(a, hoy);
   const estado = a.vencido ? '<span class="chip bad">Vencido</span>'
-    : dias <= 1 ? `<span class="chip warn">${dias === 0 ? 'Hoy' : 'Mañana'}</span>`
-    : dias <= 5 ? `<span class="chip">${cuandoEs(a.fecha, hoy)}</span>` : '';
+    : u === 'urgente' ? `<span class="chip bad">${dias <= 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `En ${dias} días`}</span>`
+    : u === 'pronto' ? `<span class="chip warn">En ${dias} días</span>` : '';
   const accion = a.tipo === 'fijo' ? 'data-accion="modal" data-tipo="recurrente"' : 'data-accion="pagar"';
-  return `<button class="row" ${accion} data-id="${a.id}">
-    ${tile(icono, a.vencido ? 'bad' : '')}
+  return `<button class="row ${u ? `barra-${u}` : ''}" ${accion} data-id="${a.id}">
+    ${tile(icono, u === 'urgente' ? 'bad' : u === 'pronto' ? 'oro' : '')}
     <span class="rt"><b>${esc(a.titulo)}</b><small>${estado}${fechaCorta(a.fecha)} · ${esc(a.detalle)}</small></span>
     <span class="amt">${dinero(a.monto)}</span>
   </button>`;

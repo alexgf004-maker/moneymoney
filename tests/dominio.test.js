@@ -361,3 +361,9 @@ test('línea de tiempo: cuánto se libera cada mes al terminar los compromisos',
   assert.equal(t.mensualHoy, 306.02);
   assert.deepEqual(t.hitos.map(h => [h.mes, h.libera, h.quedaAlMes]), [['2027-01', 177.66, 128.36], ['2027-02', 118.37, 9.99]]);
 });
+
+test('agenda: el mismo día va primero el pago más caro', () => {
+  const t = (id, ultimos4, diaPago, monto) => ({ ...tarjeta, id, ultimos4, nombre: id, diaCorte: 20, diaPago, saldoInicial: monto, fechaSaldo: '2026-11-21', saldoCorteInicial: monto, pagadoCorteInicial: 0 });
+  const lista = proximosPagos({ tarjetas: [t('a', '1111', 11, 50), t('b', '2222', 12, 80), t('c', '3333', 13, 40), t('d', '4444', 13, 200)], prestamos: [], recurrentes: [], movs: [] }, '2026-12-09', 15);
+  assert.deepEqual(lista.map(x => x.id), ['a', 'b', 'd', 'c']);
+});

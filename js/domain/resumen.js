@@ -104,5 +104,6 @@ export function proximosPagos({ tarjetas, prestamos, recurrentes, movs, estadosD
     const fecha = proximaFechaRecurrente(r, hoy);
     if (fecha <= hasta) lista.push({ fecha, titulo: r.nombre, detalle: 'Pago fijo', monto: r.monto, tipo: 'fijo', id: r.id });
   }
-  return lista.sort((a, b) => a.fecha.localeCompare(b.fecha));
+  // Por fecha; el mismo día, primero el más caro (el que más intereses costaría si se pasa)
+  return lista.sort((a, b) => a.fecha.localeCompare(b.fecha) || b.monto - a.monto);
 }

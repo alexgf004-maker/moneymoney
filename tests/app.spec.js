@@ -263,3 +263,28 @@ test('hábitos: gastos hormiga, suscripciones y cuándo termino de pagar', async
   expect(await page.locator('body').innerText()).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
   expect(errores).toEqual([]);
 });
+
+test('varios pagos urgentes: el más cercano con cuenta regresiva y los demás dentro de la tarjeta', async ({ page }) => {
+  const errores = [];
+  page.on('pageerror', e => errores.push(e.message));
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('sembrado')) return;
+    sessionStorage.setItem('sembrado', '1');
+    const hoy = new Date();
+    const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const dia = n => new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() + n);
+    // Tres tarjetas que vencen en 1, 2 y 2 días; el corte fue hace 20 días
+    const t = (id, n, monto) => ({ id, banco: 'bac', nombre: `Tarjeta ${id}`, ultimos4: id.repeat(4), limite: 1000, diaCorte: dia(-20).getDate(), diaPago: dia(n).getDate(), tasaAnual: 40, minimoPct: 5, saldoInicial: monto, fechaSaldo: iso(dia(-1)), saldoCorteInicial: monto, pagadoCorteInicial: 0 });
+    localStorage.setItem('moneymoney:v1', JSON.stringify({ tarjetas: { a: t('a', 1, 50), b: t('b', 2, 40), c: t('c', 2, 200) } }));
+  });
+  await page.goto('/');
+  const pc = page.locator('#vista .pc');
+  await expect(pc).toHaveClass(/borde-rojo/);
+  await expect(pc).toContainText('3 urgentes');
+  await expect(pc.locator('.anillo')).toContainText('1');
+  await expect(pc.locator('.pc-urg')).toHaveCount(2);
+  await expect(pc.locator('.pc-urg').first()).toContainText('Tarjeta c'); // el mismo día, primero el más caro
+  await expect(pc).toContainText('Urgente en total');
+  await expect(pc).toContainText('$290.00');
+  expect(errores).toEqual([]);
+});

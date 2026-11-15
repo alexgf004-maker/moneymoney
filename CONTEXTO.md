@@ -51,6 +51,13 @@ Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, Net
   comida, gasolina…; marcas del usuario en `ajustes.suscripciones`) y "Cuándo termino de pagar" (línea de tiempo de
   cuotas, préstamo, pagos fijos y suscripciones, con lo que se libera cada mes).
 
+## Urgencia (opción 3 "Cuenta regresiva", elegida el 15 nov 2026)
+- Urgente = vencido o a 3 días o menos (rojo); pronto = a 7 días o menos (ámbar). `urgencia()` en views/inicio.js.
+- La tarjeta premium sigue en grafito: si es urgente lleva borde rojo y un anillo con los días que faltan.
+- Varios urgentes: el más cercano es el protagonista y los demás van dentro de la misma tarjeta ("También vencen
+  pronto"), con el total urgente; no se repiten en "Lo que viene". El mismo día, primero el más caro.
+- En "Lo que viene" y en Deudas: barra o borde rojo (urgente) o ámbar (pronto); Deudas ordena por fecha de pago.
+
 ## Estructura
 
 ```
