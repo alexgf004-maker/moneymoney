@@ -1,6 +1,6 @@
 // Red primero (así nunca se queda una versión vieja) y lo guardado solo sin señal.
 // Firebase y otros sitios van directo a la red. También muestra las notificaciones que manda el script de Gmail.
-const CACHE = 'moneymoney-v4';
+const CACHE = 'moneymoney-v5';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -37,6 +37,7 @@ self.addEventListener('push', e => {
     requireInteraction: pago, // los de pago no se van solos
     vibrate: pago ? [400, 150, 400, 150, 400, 150, 800] : [200, 100, 200],
     actions: pago ? [{ action: 'pagos', title: 'Ver pagos' }, { action: 'luego', title: 'Recordar luego' }] : [],
+    image: d.imagen || undefined, // imagen grande al expandir el aviso (como en Daily-log)
     data: { url: d.url || './', tipo: d.tipo || '' },
   }));
 });

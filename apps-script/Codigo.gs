@@ -188,7 +188,7 @@ function preferencias_(cfg) {
 }
 
 // Manda un aviso a todos los teléfonos registrados. Devuelve cuántos lo recibieron.
-function enviarPush_(cfg, titulo, cuerpo, tag, tipo) {
+function enviarPush_(cfg, titulo, cuerpo, tag, tipo, imagen) {
   var dispositivos = leer_(cfg, 'dispositivos') || {};
   var proyecto = proyecto_(cfg);
   var ok = 0;
@@ -201,7 +201,8 @@ function enviarPush_(cfg, titulo, cuerpo, tag, tipo) {
       payload: JSON.stringify({ message: {
         token: dispositivos[id].token,
         notification: { title: titulo, body: cuerpo },
-        data: { tag: tag || 'moneymoney', url: APP_URL, tipo: tipo || 'compra' }, // tipo 'pagos' = aviso insistente
+        // tipo 'pagos' = aviso insistente; imagen = la imagen grande del aviso (icons/ de la app)
+        data: { tag: tag || 'moneymoney', url: APP_URL, tipo: tipo || 'compra', imagen: imagen ? APP_URL + 'icons/' + imagen : '' },
         // Urgencia alta y válido por un día: Android no lo retrasa para ahorrar batería
         webpush: { headers: { Urgency: 'high', TTL: '86400' }, fcm_options: { link: APP_URL } },
       } }),
@@ -248,7 +249,7 @@ function enviarRecordatorios() {
   var hoy = fechaISO_(new Date());
   var aviso = armarRecordatorio(agenda.pagos, hoy, avisados, pagados);
   if (!aviso) { Logger.log('Hoy no hay pagos que avisar.'); return; }
-  var recibidos = enviarPush_(cfg, aviso.titulo, aviso.cuerpo, 'pagos', 'pagos');
+  var recibidos = enviarPush_(cfg, aviso.titulo, aviso.cuerpo, 'pagos', 'pagos', aviso.imagen);
   if (prefs.correo || !recibidos) {
     MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'MoneyMoney: ' + aviso.titulo, aviso.cuerpo + '\n\nAbre MoneyMoney: ' + APP_URL);
   }
@@ -262,7 +263,7 @@ function enviarRecordatorios() {
 // Para comprobar que los avisos llegan al teléfono
 function probarAviso() {
   var cfg = config_();
-  var n = enviarPush_(cfg, 'MoneyMoney', 'Así te llegarán los avisos de pago. Este se queda en pantalla hasta que lo toques.', 'prueba', 'pagos');
+  var n = enviarPush_(cfg, 'MoneyMoney', 'Así te llegarán los avisos de pago. Este se queda en pantalla hasta que lo toques.', 'prueba', 'pagos', 'aviso-pago.jpg');
   Logger.log(n ? 'Aviso enviado a ' + n + ' teléfono(s).' : 'No llegó a ningún teléfono: activa los avisos en la app (Más > Avisos) y revisa el mensaje de error de arriba.');
 }
 

@@ -65,6 +65,9 @@ Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, Net
 - El script (Codigo.gs) manda: un aviso por cada compra o pago que llega por correo (solo en la revisión normal) y,
   cada mañana a las 7 (`enviarRecordatorios`), UN aviso con los pagos a 3 días o menos o vencidos, armado por
   `armarRecordatorio` (Avisos.gs, con pruebas). Copia por correo si `ajustes.notif.correo`.
+- Avisos de pago insistentes (como en Daily-log): se quedan en pantalla, vibración fuerte, botones "Ver pagos" y
+  "Recordar luego", imagen grande 1024x512 (`icons/aviso-pago|hoy|urgentes|vencido.jpg`, generadas con
+  `node tools/gen-avisos.cjs`) y `icons/badge-96.png` como ícono blanco de la barra de estado.
 - No repite avisos (`AVISADOS` en propiedades del script) y no avisa de una tarjeta si ya llegó un pago a ella por
   correo (`PAGADOS`), aunque la agenda esté vieja.
 

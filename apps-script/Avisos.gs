@@ -60,7 +60,10 @@ function armarRecordatorio(pagos, hoy, avisados, pagados) {
     titulo = urgentes.length + ' pagos urgentes: ' + dinero_(total) + (vencidos ? ' (' + vencidos + ' vencido' + (vencidos > 1 ? 's' : '') + ')' : '');
     cuerpo = urgentes.map(function (p) { return p.titulo + ': ' + dinero_(p.monto) + ', ' + cuando_(p, hoy); }).join('\n');
   }
-  return { titulo: titulo, cuerpo: cuerpo, claves: claves };
+  // Imagen grande del aviso (icons/ de la app): vencido > varios > hoy > el resto
+  var hayVencido = urgentes.some(function (x) { return cuando_(x, hoy) === 'vencido'; });
+  var imagen = hayVencido ? 'aviso-vencido.jpg' : urgentes.length > 1 ? 'aviso-urgentes.jpg' : cuando_(urgentes[0], hoy) === 'hoy' ? 'aviso-hoy.jpg' : 'aviso-pago.jpg';
+  return { titulo: titulo, cuerpo: cuerpo, claves: claves, imagen: imagen };
 }
 
 if (typeof module !== 'undefined') module.exports = { armarRecordatorio: armarRecordatorio, etapaAviso: etapaAviso };

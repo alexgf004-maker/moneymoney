@@ -89,5 +89,5 @@ export async function activarNotificaciones(vapidKey) {
 // Aviso local para comprobar que el teléfono muestra las notificaciones de la app
 export async function avisoDePrueba() {
   const registro = await navigator.serviceWorker.ready;
-  await registro.showNotification('MoneyMoney', { body: 'Así te llegarán los avisos de pago. Este se queda en pantalla hasta que lo toques.', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'prueba', renotify: true, requireInteraction: true, vibrate: [400, 150, 400, 150, 400, 150, 800], actions: [{ action: 'pagos', title: 'Ver pagos' }, { action: 'luego', title: 'Recordar luego' }], data: { tipo: 'pagos', url: './' } });
+  await registro.showNotification('MoneyMoney', { body: 'Así te llegarán los avisos de pago. Este se queda en pantalla hasta que lo toques.', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'prueba', renotify: true, requireInteraction: true, vibrate: [400, 150, 400, 150, 400, 150, 800], actions: [{ action: 'pagos', title: 'Ver pagos' }, { action: 'luego', title: 'Recordar luego' }], image: 'icons/aviso-pago.jpg', data: { tipo: 'pagos', url: './' } });
 }

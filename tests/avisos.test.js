@@ -42,3 +42,10 @@ test('vencido: avisa cada día; si ya llegó el pago por correo, no avisa', () =
   assert.equal(armarRecordatorio(pagos, '2026-11-07', {}, { 5710: '2026-11-06' }), null);
   assert.deepEqual(plano(armarRecordatorio(pagos, '2026-11-08', { 'a|2026-11-05|vencido-2026-11-07': true }).claves), ['a|2026-11-05|vencido-2026-11-08']);
 });
+
+test('imagen grande según el caso', () => {
+  assert.equal(armarRecordatorio([p('a', 'Visa ···1111', '2026-11-18', 50)], '2026-11-16', {}).imagen, 'aviso-pago.jpg');
+  assert.equal(armarRecordatorio([p('a', 'Visa ···1111', '2026-11-16', 50)], '2026-11-16', {}).imagen, 'aviso-hoy.jpg');
+  assert.equal(armarRecordatorio([p('a', 'Visa ···1111', '2026-11-16', 50), p('b', 'BAC ···2222', '2026-11-17', 40)], '2026-11-16', {}).imagen, 'aviso-urgentes.jpg');
+  assert.equal(armarRecordatorio([p('a', 'Visa ···1111', '2026-11-10', 50), p('b', 'BAC ···2222', '2026-11-17', 40)], '2026-11-16', {}).imagen, 'aviso-vencido.jpg');
+});
