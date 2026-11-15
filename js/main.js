@@ -129,8 +129,16 @@ const ACCIONES = {
     cerrar();
     aviso('Vuelve a contar completa');
   },
+  'sus-restaurar': d => {
+    const marcas = { ...(store.ajustes().suscripciones || {}) };
+    const { ignorar, ...resto } = marcas[d.clave] || {};
+    marcas[d.clave] = resto;
+    store.guardarAjustes({ suscripciones: marcas });
+    aviso('Volvió a tus suscripciones');
+  },
   'sus-ignorar': d => {
-    const marcas = { ...(store.ajustes().suscripciones || {}), [d.clave]: { ignorar: true } };
+    const todas = store.ajustes().suscripciones || {};
+    const marcas = { ...todas, [d.clave]: { ...(todas[d.clave] || {}), ignorar: true } };
     store.guardarAjustes({ suscripciones: marcas });
     aviso('Quitada de suscripciones');
   },

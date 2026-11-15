@@ -55,6 +55,7 @@ function parte(total, marca = {}) {
 export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
   const desde = sumarMeses(hoy, -4);
   const grupos = new Map();
+  const quitadas = []; // las que marcaste "No es suscripción", para poder volver a agregarlas
   for (const m of compras(movs).filter(x => x.fecha > desde && x.fecha <= hoy)) {
     const k = claveComercio(m.comercio);
     const g = grupos.get(k) || { clave: k, nombre: m.comercio, cobros: [], cuentaId: m.cuentaId, categoriaId: m.categoriaId };
@@ -73,8 +74,8 @@ export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
     const esDeSuscripcion = g.categoriaId === 'suscripciones' || PATRONES_SUSCRIPCION.some(p => normalizar(g.nombre).includes(p));
     // Se repite en 2 o más meses con montos parecidos (y no es algo de todos los días), o es un servicio conocido
     if (!((meses.size >= 2 && parecidos && unaVezAlMes) || esDeSuscripcion)) continue;
-    if (marcas[g.clave]?.ignorar) continue;
     const ultimo = g.cobros[g.cobros.length - 1];
+    if (marcas[g.clave]?.ignorar) { quitadas.push({ clave: g.clave, nombre: ultimo.comercio, monto: ultimo.monto }); continue; }
     lista.push({
       clave: g.clave, nombre: ultimo.comercio, ...parte(ultimo.monto, marcas[g.clave]), mesesVistos: meses.size, ultimoCobro: ultimo.fecha,
       proximo: sumarMeses(ultimo.fecha, 1), cuentaId: ultimo.cuentaId,
@@ -84,12 +85,13 @@ export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
   // Pagos fijos marcados como suscripción que todavía no tienen cobros
   for (const r of recurrentes.filter(x => x.tipo === 'gasto' && x.categoriaId === 'suscripciones' && x.activo !== false)) {
     const k = claveComercio(r.nombre);
-    if (lista.some(s => s.clave === k) || marcas[k]?.ignorar) continue;
+    if (lista.some(s => s.clave === k) || quitadas.some(s => s.clave === k)) continue;
+    if (marcas[k]?.ignorar) { quitadas.push({ clave: k, nombre: r.nombre, monto: r.monto }); continue; }
     lista.push({ clave: k, nombre: r.nombre, ...parte(r.monto, marcas[k]), mesesVistos: 0, ultimoCobro: null, proximo: null, cuentaId: r.cuentaId, cancelar: !!marcas[k]?.cancelar, origen: 'fijo' });
   }
   lista.sort((a, b) => b.monto - a.monto);
   const activas = lista.filter(s => !s.cancelar);
-  return { lista, alMes: sumar(activas.map(s => s.monto)), alAnio: sumar(activas.map(s => s.alAnio)), paraCancelar: sumar(lista.filter(s => s.cancelar).map(s => s.monto)) };
+  return { lista, quitadas, alMes: sumar(activas.map(s => s.monto)), alAnio: sumar(activas.map(s => s.alAnio)), paraCancelar: sumar(lista.filter(s => s.cancelar).map(s => s.monto)) };
 }
 
 // ---------- Compromisos: lo que pagas cada mes y cuándo termina ----------

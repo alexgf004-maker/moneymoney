@@ -134,7 +134,13 @@ function suscripcionesHTML() {
           <button class="link" style="font-size:12.5px;color:var(--mu)" data-accion="sus-ignorar" data-clave="${esc(x.clave)}">No es suscripción</button>
         </span></span>
       <span class="amt">${dinero(x.monto)}<small>al mes</small></span>
-    </div>`).join('') : vacio('cat-suscripciones', 'Todavía no detecto suscripciones', 'Aparecen cuando un cobro se repite dos meses, o puedes agregarlas como pago fijo con categoría Suscripciones.')}</div>`;
+    </div>`).join('') : vacio('cat-suscripciones', 'Todavía no detecto suscripciones', 'Aparecen cuando un cobro se repite dos meses, o puedes agregarlas como pago fijo con categoría Suscripciones.')}</div>
+    ${s.quitadas.length ? `<div class="secc"><h3>Quitadas</h3></div>
+    <p class="mu" style="margin:0 4px 10px">Las marcaste como "No es suscripción". Si te equivocaste, vuelve a agregarlas.</p>
+    <div class="card">${s.quitadas.map(x => `<div class="row apagado">${tile('cat-suscripciones')}
+      <span class="rt"><b>${esc(x.nombre)}</b><small>${dinero(x.monto)} al mes</small></span>
+      <button class="link" style="font-size:12.5px;white-space:nowrap" data-accion="sus-restaurar" data-clave="${esc(x.clave)}">Volver a agregar</button>
+    </div>`).join('')}</div>` : ''}`;
 }
 
 // ---------- Compromisos: cuándo termino de pagar ----------
