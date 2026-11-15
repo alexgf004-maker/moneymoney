@@ -39,8 +39,11 @@ function escritor() {
   return {
     escribir(ruta, valor, { reemplazar = true } = {}) {
       const r = dbMod.ref(db, `usuarios/${uid}${ruta ? '/' + ruta : ''}`);
-      const p = reemplazar || valor === null ? dbMod.set(r, valor) : dbMod.update(r, valor);
-      p.catch(e => console.error('No se pudo guardar en la nube', ruta, e));
+      // Un error al guardar en la nube nunca debe impedir que se guarde en el teléfono
+      try {
+        const p = reemplazar || valor === null ? dbMod.set(r, valor) : dbMod.update(r, valor);
+        p.catch(e => console.error('No se pudo guardar en la nube', ruta, e));
+      } catch (e) { console.error('No se pudo guardar en la nube', ruta, e); }
     },
   };
 }

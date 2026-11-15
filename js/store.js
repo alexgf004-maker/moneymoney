@@ -16,6 +16,10 @@ const avisar = origen => oyentes.forEach(fn => fn(origen));
 
 // Quita los `undefined` (Firebase no los acepta)
 const limpio = o => JSON.parse(JSON.stringify(o));
+// Firebase no acepta . # $ [ ] / en los nombres de campo: las marcas de suscripciones viejas se corrigen al guardar
+const sinPuntos = o => o.suscripciones
+  ? { ...o, suscripciones: Object.fromEntries(Object.entries(o.suscripciones).map(([k, v]) => [k.replace(/[.#$[\]/]/g, '').trim(), v])) }
+  : o;
 
 function guardarLocal() {
   try { localStorage.setItem(CLAVE, JSON.stringify(datos)); } catch { /* sin espacio o modo privado */ }
@@ -47,7 +51,7 @@ export function guardar(col, obj) {
 
 export function guardarVarios(col, objs, { silencioso = false } = {}) {
   for (const o of objs) {
-    const v = limpio(o);
+    const v = limpio(col === 'ajustes' ? sinPuntos(o) : o);
     datos[col][v.id] = v;
     remoto?.escribir(`${col}/${v.id}`, v);
   }

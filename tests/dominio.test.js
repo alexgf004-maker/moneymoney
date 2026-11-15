@@ -343,8 +343,8 @@ test('suscripciones: se detectan por repetición mensual o por ser un servicio c
     g('SUPER SELECTOS', 60, '2026-10-02'), g('SUPER SELECTOS', 15, '2026-11-02'), // montos distintos: no es suscripción
     g('STARBUCKS', 5, '2026-10-01'), g('STARBUCKS', 5, '2026-10-03'), g('STARBUCKS', 5, '2026-11-01'), // varias al mes: no
   ];
-  const s = suscripciones(movs, [], '2026-11-14', { 'NETFLIX.COM': { cancelar: true } });
-  assert.deepEqual(s.lista.map(x => x.clave).sort(), ['APP GIMNASIO', 'NETFLIX.COM']);
+  const s = suscripciones(movs, [], '2026-11-14', { 'NETFLIXCOM': { cancelar: true } });
+  assert.deepEqual(s.lista.map(x => x.clave).sort(), ['APP GIMNASIO', 'NETFLIXCOM']);
   assert.equal(s.alMes, 25); // Netflix está marcada para cancelar
   assert.equal(s.paraCancelar, 9.99);
   assert.equal(s.alAnio, 300);
@@ -394,4 +394,10 @@ test('estás por terminar: lo que acaba en 12 meses, con avance y lo que quedar�
   assert.equal(p.mensualHoy, 420.15);
   assert.equal(p.quedaAlMes, 185.62);
   assert.equal(porTerminar(lineaDeTiempo([{ nombre: 'Préstamo', mensual: 100, fin: '2031-01-01' }], '2026-11-15'), '2026-11-15'), null);
+});
+
+test('las claves de suscripciones no llevan puntos (Firebase no los acepta)', async () => {
+  const { claveComercio } = await import('../js/domain/habitos.js');
+  assert.equal(claveComercio('PEDIDOSYA.COM SV'), 'PEDIDOSYACOM');
+  assert.ok(!/[.#$[\]/]/.test(claveComercio('GOOGLE *ChatGPT g.co/')));
 });

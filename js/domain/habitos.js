@@ -8,7 +8,8 @@ import { normalizar, patronSugerido, REGLAS_BASE } from './categorias.js';
 const compras = movs => movs.filter(m => m.tipo === 'gasto' && !m.plan && m.origen !== 'ajuste');
 
 // Nombre agrupable de un comercio: "UBER *TRIP 1234" y "UBER *TRIP 9876" -> "UBER TRIP"
-export const claveComercio = comercio => patronSugerido(comercio) || normalizar(comercio).slice(0, 20);
+// Sin puntos: la clave se usa como nombre de campo en Firebase, que no acepta . # $ [ ] /
+export const claveComercio = comercio => (patronSugerido(comercio) || normalizar(comercio).slice(0, 20)).replace(/\./g, '').trim();
 
 // ---------- Gastos hormiga: compras pequeñas y frecuentes ----------
 
