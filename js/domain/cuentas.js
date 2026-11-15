@@ -1,6 +1,6 @@
 // Saldo de las cuentas de banco y del efectivo, y "¿cuánto puedo gastar hasta mi próximo salario?".
 //
-// Cuenta: { id, nombre, tipo: 'efectivo'|'banco', saldoInicial, fechaSaldo, cuenta4, ultimos4 }
+// Cuenta: { id, nombre, tipo: 'efectivo'|'banco', saldoInicial, fechaSaldo, saldoMomento, cuenta4, ultimos4 }
 // - saldoInicial: lo que había al configurarla o al último "ajustar saldo" (fechaSaldo). Los movimientos
 //   posteriores se suman encima: ingresos y devoluciones suben; gastos y pagos hechos desde la cuenta bajan.
 
@@ -9,17 +9,40 @@ import { deISO, diasEntre, fechaConDia, sumarMeses } from './fechas.js';
 import { estadoTarjeta, fechaPagoDe } from './tarjetas.js';
 import { estadoPrestamo, tablaPagos } from './prestamo.js';
 
-function efectoEnCuenta(m, id) {
+export function efectoEnCuenta(m, id) {
+  // Mover dinero entre tus cuentas (Agrícola a Binance, retiro de cajero a efectivo): sale de una y entra a la otra
+  if (m.tipo === 'transferencia') return m.cuentaId === id ? m.monto : m.desdeId === id ? -m.monto : 0;
   if (m.cuentaId === id && (m.tipo === 'ingreso' || m.tipo === 'reembolso')) return m.monto;
   if (m.cuentaId === id && m.tipo === 'gasto') return -m.monto;
   if (m.desdeId === id && m.tipo === 'pago') return -m.monto;
   return 0;
 }
 
+// ¿Este movimiento cambia el saldo después de que pusiste cuánto había? Los de días siguientes, sí. Los del mismo
+// día, solo si se anotaron o llegaron después de ponerlo (pagaste después de poner tu saldo de la mañana).
+export function despuesDelSaldo(cuenta, m) {
+  const desde = cuenta.fechaSaldo || '0000-00-00';
+  if (m.fecha > desde) return true;
+  return m.fecha === desde && !!cuenta.saldoMomento && (m.creado || 0) > cuenta.saldoMomento;
+}
+
 export function saldoCuenta(cuenta, movs, hoy) {
   if (cuenta.saldoInicial == null) return null; // todavía no se puso cuánto hay
-  const desde = cuenta.fechaSaldo || '0000-00-00';
-  return r2(cuenta.saldoInicial + sumar(movs.filter(m => m.fecha > desde && m.fecha <= hoy).map(m => efectoEnCuenta(m, cuenta.id))));
+  return r2(cuenta.saldoInicial + sumar(movs.filter(m => m.fecha <= hoy && despuesDelSaldo(cuenta, m)).map(m => efectoEnCuenta(m, cuenta.id))));
+}
+
+// Movimientos de una cuenta, del más nuevo al más viejo, con su efecto (+ entra, − sale), y lo que entró y salió en `mes`
+export function movimientosDeCuenta(cuenta, movs, mes) {
+  const lista = movs
+    .map(m => ({ m, efecto: efectoEnCuenta(m, cuenta.id) }))
+    .filter(x => x.efecto !== 0)
+    .sort((a, b) => b.m.fecha.localeCompare(a.m.fecha) || (b.m.creado || 0) - (a.m.creado || 0));
+  const delMes = lista.filter(x => x.m.fecha.slice(0, 7) === mes);
+  return {
+    lista,
+    entro: sumar(delMes.filter(x => x.efecto > 0).map(x => x.efecto)),
+    salio: r2(-sumar(delMes.filter(x => x.efecto < 0).map(x => x.efecto))),
+  };
 }
 
 // Próximo ingreso fijo (salario): la fecha más cercana después de hoy entre los pagos fijos de tipo ingreso

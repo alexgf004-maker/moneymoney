@@ -11,6 +11,7 @@ export const ui = {
   mes: mesDe(hoyISO()),
   filtro: 'todos', // todos | revisar | categoría
   filtroCuenta: '',
+  cuentaSel: '', // cuenta elegida en Más > Tu dinero
   busqueda: '',
   presupuestoPlan: null,
   simExtra: {},

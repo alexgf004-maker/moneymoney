@@ -397,3 +397,15 @@ form[data-tipo="extra"] .solo-extra { display: block; }
 .puntos { display: flex; gap: 4px; margin-top: 6px; }
 .puntos span { flex: 1; height: 7px; border-radius: 4px; background: var(--sf2); }
 .puntos span.ok { background: var(--ok); }
+
+/* Tu dinero: fichas de cuentas que se deslizan */
+.fichas { display: flex; gap: 10px; overflow-x: auto; margin: 0 -18px; padding: 4px 18px; scroll-padding: 0 18px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.fichas::-webkit-scrollbar { display: none; }
+.ficha { flex: 0 0 auto; min-width: 146px; text-align: left; background: var(--sf); border: 1px solid var(--bd); border-radius: 18px; padding: 13px 14px; color: var(--tx); scroll-snap-align: start; }
+.ficha.on { border: 1.5px solid var(--tx); }
+.ficha small { display: block; color: var(--mu); font-size: 12px; }
+.ficha b { display: block; font-size: 19px; font-weight: 500; margin-top: 8px; font-variant-numeric: tabular-nums; }
+.ficha.nueva { min-width: 92px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--mu); }
+.dos-botones { display: flex; gap: 10px; margin-top: 12px; }
+.dos-botones .btn { flex: 1; }
+.dia-tit { font-size: 12px; color: var(--mu); margin: 16px 4px 6px; font-weight: 600; }

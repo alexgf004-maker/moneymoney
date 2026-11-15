@@ -159,3 +159,9 @@ día de margen) se descartan al llegar (`esDuplicado`).
 - Las claves de comercio no llevan puntos (Firebase no acepta . # $ [ ] / en nombres de campo).
 - Compras en cuotas compartidas: plan.entre (2 = a mitad). "Estás por terminar" y "Cuándo termino de pagar" cuentan
   cuota / entre; la tarjeta, su pago y "Puedes gastar" siguen con la cuota completa (es lo que cobra el banco).
+
+## Tu dinero (Más)
+- Opción 2 de 3 "Una cuenta a la vez" (15 nov 2026): fichas de cada cuenta que se deslizan; la elegida muestra su
+  saldo (tarjeta premium), lo que entró y salió en el mes, botones "Mover dinero" y "Ajustar saldo", y sus movimientos.
+- Movimiento tipo `transferencia` (desdeId → cuentaId): sale de una cuenta y entra a otra; no es gasto ni ingreso.
+- `saldoMomento`: al poner el saldo se guarda la hora; los movimientos del mismo día creados después sí lo cambian.

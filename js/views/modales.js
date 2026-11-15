@@ -10,7 +10,7 @@ import { hoyISO, fechaCorta } from '../domain/fechas.js';
 // Ventana con forma de hoja que sube desde abajo
 export function vistaModal() {
   const m = ui.modal;
-  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla, plan, compartir }[m.tipo];
+  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla, plan, compartir, mover }[m.tipo];
   if (!fn) return '';
   const { titulo, cuerpo } = fn(m);
   return `<div class="hoja-fondo" data-accion="cerrar-fondo">
@@ -28,7 +28,30 @@ const cats = lista => lista.map(c => [c.id, c.nombre, c.icono]);
 const TIPOS_MOV = [['gasto', 'Gasto', 'cat-compras'], ['ingreso', 'Ingreso', 'ingreso'], ['pago', 'Pago deuda', 'pago'], ['reembolso', 'Devolución', 'devolucion']];
 
 // revision: id de un correo descartado (Más > Correos revisados), para anotarlo a mano con sus datos
+// Pasar dinero de una cuenta a otra (Agrícola a Binance, retiro de cajero a efectivo). pre = cuenta de donde sale
+function mover({ id, pre }) {
+  const m = id ? obtener('movimientos', id) : null;
+  const opcs = opcionesCuentas();
+  const desde = m?.desdeId || pre || opcs.find(([v]) => v !== 'efectivo')?.[0] || opcs[0]?.[0];
+  const hacia = m?.cuentaId || opcs.find(([v]) => v !== desde)?.[0];
+  const cuerpo = opcs.length < 2 ? '<p class="mu">Necesitas al menos dos cuentas. Agrega otra en Más, Tu dinero.</p>' : `<form data-form="mover" data-id="${id || ''}">
+    <label class="monto"><span>$</span>${entrada('monto', m ? m.monto.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, ph: '0.00', extra: 'aria-label="Monto" data-enfocar' })}</label>
+    <div class="fila-campos">
+      ${campo('Sale de', selector('desdeId', opcs, desde))}
+      ${campo('Entra a', selector('haciaId', opcs, hacia))}
+    </div>
+    <div class="fila-campos">
+      ${campo('Fecha', entrada('fecha', m?.fecha || hoyISO(), { tipo: 'date', max: hoyISO() }))}
+      ${campo('Nota', entrada('nota', m?.nota || '', { ph: 'Ej. Retiro cajero' }))}
+    </div>
+    <small class="mu">No cuenta como gasto: solo cambia dónde está tu dinero.</small>
+    ${pie(botonBorrar('movimientos', id))}
+  </form>`;
+  return { titulo: id ? 'Dinero movido' : 'Mover dinero', cuerpo };
+}
+
 function movimiento({ id, mov: tipoInicial, revision }) {
+  if (id && obtener('movimientos', id)?.tipo === 'transferencia') return mover({ id });
   const r = revision ? obtener('revision', revision) : null;
   const m = id ? obtener('movimientos', id) : r ? { monto: r.monto || 0, fecha: r.fecha, comercio: r.asunto, tipo: 'gasto' } : null;
   const tipo = m?.tipo || tipoInicial || 'gasto';

@@ -233,15 +233,33 @@ test('inicio: cuánto puedo gastar con saldos y salario', async ({ page }) => {
   // Sin saldos todavía: invita a ponerlos
   await expect(page.getByRole('button', { name: /¿Cuánto puedes gastar\?/ })).toBeVisible();
   await nav(page, 'Más');
-  await page.getByRole('button', { name: /Cuentas y efectivo/ }).click();
-  await page.getByRole('button', { name: /Efectivo/ }).click();
+  await page.getByRole('button', { name: /Tu dinero/ }).click();
+  await page.locator('.ficha', { hasText: 'Efectivo' }).first().click();
+  await page.getByRole('button', { name: 'Ajustar saldo' }).click();
   await page.locator('form[data-form=cuenta] [name=saldoHoy]').fill('1500');
   await page.locator('form[data-form=cuenta]').getByRole('button', { name: 'Guardar' }).click();
-  await expect(page.locator('#vista')).toContainText('$1,500.00');
+  await expect(page.locator('.pc')).toContainText('$1,500');
+  // Una billetera nueva y mover dinero del efectivo a ella: baja en una y sube en la otra, sin contar como gasto
+  await page.getByRole('button', { name: 'Agregar cuenta' }).click();
+  const fc = page.locator('form[data-form=cuenta]');
+  await fc.locator('[name=nombre]').fill('Binance');
+  await fc.locator('[name=banco]').selectOption('otro');
+  await fc.locator('[name=saldoHoy]').fill('70');
+  await fc.getByRole('button', { name: 'Guardar' }).click();
+  await page.locator('.ficha', { hasText: 'Efectivo' }).first().click();
+  await page.getByRole('button', { name: 'Mover dinero' }).click();
+  const fm = page.locator('form[data-form=mover]');
+  await fm.locator('[name=monto]').fill('50');
+  await fm.locator('[name=haciaId]').selectOption({ label: 'Binance' });
+  await fm.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.locator('.ficha', { hasText: 'Efectivo' })).toContainText('$1,450.00');
+  await expect(page.locator('.ficha', { hasText: 'Binance' })).toContainText('$120.00');
+  await expect(page.locator('.pc')).toContainText('Salió en');
+  await expect(page.locator('#vista')).toContainText('Efectivo → Binance');
   await nav(page, 'Inicio');
   const g = page.locator('.gastar');
   await expect(g).toContainText('Puedes gastar hasta');
-  await expect(g).toContainText('Tienes (Efectivo)');
+  await expect(g).toContainText('Tienes (Efectivo + Binance)');
   await expect(g).toContainText(/Te alcanza|No te alcanza/);
   expect(errores).toEqual([]);
 });

@@ -11,7 +11,7 @@ export function vistaMovimientos() {
   const todos = movs();
   const revisar = todos.filter(m => m.revisar);
   let lista = ui.filtro === 'revisar' ? revisar : todos.filter(m => mesDe(m.fecha) === ui.mes);
-  if (ui.filtro !== 'todos' && ui.filtro !== 'revisar') lista = lista.filter(m => (m.categoriaId || 'otros') === ui.filtro && m.tipo !== 'pago');
+  if (ui.filtro !== 'todos' && ui.filtro !== 'revisar') lista = lista.filter(m => (m.categoriaId || 'otros') === ui.filtro && m.tipo !== 'pago' && m.tipo !== 'transferencia');
   if (ui.filtroCuenta) lista = lista.filter(m => m.cuentaId === ui.filtroCuenta || m.desdeId === ui.filtroCuenta);
   if (ui.busqueda) {
     const q = normalizar(ui.busqueda);
@@ -69,10 +69,18 @@ function tituloDia(fecha) {
   return fechaLarga(fecha).replace(` de ${new Date().getFullYear()}`, '');
 }
 
-export function filaMovimiento(m) {
+export function filaMovimiento(m, efecto = null) {
+  if (m.tipo === 'transferencia') {
+    const signo = efecto == null ? '' : efecto > 0 ? '+' : '-';
+    return `<button class="row" data-accion="modal" data-tipo="movimiento" data-id="${m.id}">
+    ${tile('repetir', signo === '+' ? 'ok' : '')}
+    <span class="rt"><b>${esc(m.nota || 'Dinero movido')}</b><small>${esc(nombreCuenta(m.desdeId))} → ${esc(nombreCuenta(m.cuentaId))}</small></span>
+    <span class="amt ${signo === '+' ? 'ok' : ''}">${signo}${dinero(m.monto)}</span>
+  </button>`;
+  }
   const esPago = m.tipo === 'pago';
   const c = esPago ? { icono: 'pago', nombre: 'Pago', color: '' } : categoria(m.categoriaId);
-  const signo = m.tipo === 'ingreso' || m.tipo === 'reembolso' ? '+' : esPago ? '' : '-';
+  const signo = efecto != null ? (efecto > 0 ? '+' : '-') : m.tipo === 'ingreso' || m.tipo === 'reembolso' ? '+' : esPago ? '' : '-';
   const detalle = esPago
     ? `${m.extra ? 'Abono a capital' : 'Pago'}${m.desdeId ? ` desde ${nombreCuenta(m.desdeId)}` : ''}`
     : `${c.nombre} · ${m.cuentaId ? nombreCuenta(m.cuentaId) : m.debito ? `Débito ···${m.ultimos4}, elige la cuenta` : m.ultimos4 ? `Tarjeta ···${m.ultimos4}, agrégala en Deudas` : 'Tarjeta sin identificar'}`;

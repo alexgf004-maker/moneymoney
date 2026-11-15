@@ -4,8 +4,9 @@ import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco, hormigaD
 import { CATEGORIAS, categoria } from '../domain/categorias.js';
 import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
-import { hoyISO, mesDe, mesAnterior, nombreMes, fechaCorta } from '../domain/fechas.js';
-import { saldoCuenta } from '../domain/cuentas.js';
+import { hoyISO, mesDe, mesAnterior, nombreMes, fechaCorta, fechaLarga, diasEntre } from '../domain/fechas.js';
+import { saldoCuenta, movimientosDeCuenta } from '../domain/cuentas.js';
+import { filaMovimiento } from './movimientos.js';
 
 const SUBS = {
   presupuesto: ['Presupuesto', presupuesto],
@@ -13,7 +14,7 @@ const SUBS = {
   suscripciones: ['Suscripciones', suscripcionesHTML],
   compromisos: ['Cuándo termino de pagar', compromisosHTML],
   fijos: ['Pagos fijos', fijos],
-  cuentas: ['Cuentas y efectivo', cuentasHTML],
+  cuentas: ['Tu dinero', cuentasHTML],
   reglas: ['Reglas de categorías', reglasHTML],
   conexion: ['Conexión con Gmail', conexion],
   noleidos: ['Correos sin leer', noLeidos],
@@ -38,7 +39,7 @@ export function vistaMas() {
       ${fila('suscripciones', 'cat-suscripciones', 'Suscripciones', 'Cuánto pagas al mes y al año')}
       ${fila('compromisos', 'calendario', 'Cuándo termino de pagar', 'Tus pagos de cada mes y cuándo se acaban')}
       ${fila('fijos', 'repetir', 'Pagos fijos', `${recurrentes().length || 'Ninguno'} · se anotan solos cada mes`)}
-      ${fila('cuentas', 'cartera', 'Cuentas y efectivo', `${cuentas().length} cuenta${cuentas().length > 1 ? 's' : ''}`)}
+      ${fila('cuentas', 'cartera', 'Tu dinero', 'Tus cuentas, efectivo y sus movimientos')}
       ${fila('reglas', 'regla', 'Reglas de categorías', `${reglas().length} propia${reglas().length === 1 ? '' : 's'} · más los comercios comunes`)}
     </div>
     <div class="grupo-t">Automatización</div>
@@ -250,18 +251,48 @@ function fijos() {
     <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="recurrente">${ic('plus')} Agregar pago fijo</button>`;
 }
 
+// Tu dinero · opción 2 "Una cuenta a la vez" (elegida el 15 nov 2026): fichas de cada cuenta arriba; la elegida
+// muestra su saldo, lo que entró y salió en el mes, y sus movimientos.
 function cuentasHTML() {
   const hoy = hoyISO();
-  const saldos = cuentas().map(c => ({ c, s: saldoCuenta(c, movs(), hoy) }));
-  const total = sumar(saldos.filter(x => x.s != null).map(x => x.s));
+  const todas = cuentas().map(c => ({ c, s: saldoCuenta(c, movs(), hoy) }));
+  if (!todas.length) return `<div class="card">${vacio('cartera', 'Sin cuentas', 'Agrega tu cuenta de banco, billeteras como Binance o Nequi, y tu efectivo.', `<button class="btn sm" data-accion="modal" data-tipo="cuenta">${ic('plus')} Agregar cuenta</button>`)}</div>`;
+  const sel = todas.find(x => x.c.id === ui.cuentaSel) || todas.find(x => x.c.tipo !== 'efectivo') || todas[0];
+  const total = sumar(todas.filter(x => x.s != null).map(x => x.s));
+  // Segunda línea de cada ficha: sin repetir el nombre (Banco Agrícola / Banco Agrícola)
+  const sub = c => {
+    if (c.tipo === 'efectivo') return 'En la cartera';
+    const banco = c.banco && c.banco !== 'otro' ? nombreBanco(c.banco) : '';
+    return banco && banco !== c.nombre ? banco : c.cuenta4 ? 'Cuenta' : banco ? 'Cuenta de banco' : 'Billetera';
+  };
+  const fichas = todas.map(({ c, s }) => `<button class="ficha ${c.id === sel.c.id ? 'on' : ''}" data-accion="ver-dinero" data-id="${c.id}" aria-pressed="${c.id === sel.c.id}">
+      <small>${esc(c.nombre)}</small><small>${esc(sub(c))}${c.cuenta4 ? ` ···${esc(c.cuenta4)}` : ''}</small><b>${s != null ? dinero(s) : 'Sin saldo'}</b></button>`).join('');
+  const mes = mesDe(hoy);
+  const d = movimientosDeCuenta(sel.c, movs(), mes);
+  const porDia = new Map();
+  for (const x of d.lista.slice(0, 60)) {
+    if (!porDia.has(x.m.fecha)) porDia.set(x.m.fecha, []);
+    porDia.get(x.m.fecha).push(x);
+  }
+  const titulo = f => { const n = diasEntre(f, hoy); return n === 0 ? 'Hoy' : n === 1 ? 'Ayer' : fechaLarga(f).replace(/ de \d{4}$/, ''); };
+  const mesTxt = nombreMes(mes).split(' ')[0];
   return `
-    <p class="mu" style="margin:0 4px 14px">Tu dinero en cuentas y efectivo. La app lo va actualizando con tus ingresos, gastos y pagos; si no cuadra, toca la cuenta y ajústalo.${saldos.some(x => x.s != null) ? ` Total: <b>${dinero(total)}</b>.` : ''}</p>
-    <div class="card">${saldos.map(({ c, s }) => `<button class="row" data-accion="modal" data-tipo="cuenta" data-id="${c.id}">
-      ${tile(c.tipo === 'efectivo' ? 'billete' : 'cartera')}
-      <span class="rt"><b>${esc(c.nombre)}</b><small>${c.tipo === 'efectivo' ? 'Efectivo' : esc(nombreBanco(c.banco))}${c.cuenta4 ? ` · cuenta ···${esc(c.cuenta4)}` : ''}${c.ultimos4 ? ` · débito ···${esc(c.ultimos4)}` : ''}</small></span>
-      <span class="amt">${s != null ? dinero(s) : '<span class="link">Poner saldo</span>'}</span>
-    </button>`).join('')}</div>
-    <button class="btn ancho" style="margin-top:14px" data-accion="modal" data-tipo="cuenta">${ic('plus')} Agregar cuenta</button>`;
+    <div class="fichas" role="tablist" aria-label="Tus cuentas">${fichas}
+      <button class="ficha nueva" data-accion="modal" data-tipo="cuenta" aria-label="Agregar cuenta">${ic('plus')}<small>Agregar</small></button></div>
+    ${todas.length > 1 ? `<p class="mu" style="margin:8px 4px 0;font-size:12.5px">Tienes en total ${dinero(total)}</p>` : ''}
+    <section class="pc" style="margin-top:12px">
+      <div class="pc-top"><span class="pc-lbl">${esc(sel.c.nombre)}${sel.c.cuenta4 ? ` · ···${esc(sel.c.cuenta4)}` : ''}</span></div>
+      <div class="big">${sel.s != null ? montoGrande(dinero(sel.s)) : 'Sin saldo'}</div>
+      ${sel.c.fechaSaldo ? `<div class="pc-sub">Desde el saldo que pusiste el ${fechaCorta(sel.c.fechaSaldo)}</div>` : ''}
+      <div class="pc-div"></div>
+      <div class="mini"><div>Entró en ${mesTxt}<b>${dinero(d.entro)}</b></div><div>Salió en ${mesTxt}<b>${dinero(d.salio)}</b></div></div>
+    </section>
+    <div class="dos-botones">
+      <button class="btn sec" data-accion="modal" data-tipo="mover" data-pre="${sel.c.id}">${ic('repetir')} Mover dinero</button>
+      <button class="btn sec" data-accion="modal" data-tipo="cuenta" data-id="${sel.c.id}">${ic('editar')} Ajustar saldo</button>
+    </div>
+    ${porDia.size ? [...porDia.entries()].map(([f, l]) => `<div class="dia-tit">${titulo(f)}</div><div class="card">${l.map(x => filaMovimiento(x.m, x.efecto)).join('')}</div>`).join('')
+      : `<div class="card" style="margin-top:14px">${vacio('movimientos', 'Sin movimientos', 'Aquí aparecen tus ingresos, gastos, pagos y lo que muevas desde o hacia esta cuenta.')}</div>`}`;
 }
 
 function reglasHTML() {

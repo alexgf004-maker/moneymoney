@@ -416,3 +416,21 @@ test('suscripción compartida: cuenta solo tu parte', async () => {
   assert.equal(exacta.lista.find(x => x.clave === 'TELECOM').monto, 12);
   assert.equal(suscripciones(movs, [], '2026-11-14', {}).lista.find(x => x.clave === 'TELECOM').compartida, null);
 });
+
+test('cuentas: mover dinero entre cuentas y pagos del mismo día después de poner el saldo', async () => {
+  const { saldoCuenta, movimientosDeCuenta } = await import('../js/domain/cuentas.js');
+  const agricola = { id: 'a', saldoInicial: 1444.26, fechaSaldo: '2026-11-15', saldoMomento: 1000 };
+  const binance = { id: 'b', saldoInicial: 70, fechaSaldo: '2026-11-01' };
+  const movs = [
+    { id: 'p1', tipo: 'pago', monto: 129.11, fecha: '2026-11-15', cuentaId: 't', desdeId: 'a', creado: 2000 }, // después de poner el saldo
+    { id: 'p0', tipo: 'pago', monto: 50, fecha: '2026-11-15', cuentaId: 't', desdeId: 'a', creado: 500 },     // antes: ya estaba incluido
+    { id: 'x', tipo: 'transferencia', monto: 50, fecha: '2026-11-16', desdeId: 'a', cuentaId: 'b', creado: 3000 },
+  ];
+  assert.equal(saldoCuenta(agricola, movs, '2026-11-16'), 1265.15);
+  assert.equal(saldoCuenta(binance, movs, '2026-11-16'), 120);
+  const d = movimientosDeCuenta(agricola, movs, '2026-11');
+  assert.deepEqual(d.lista.map(x => [x.m.id, x.efecto]), [['x', -50], ['p1', -129.11], ['p0', -50]]);
+  assert.equal(d.salio, 229.11);
+  assert.equal(d.entro, 0);
+  assert.equal(saldoCuenta({ ...agricola, saldoMomento: undefined }, movs, '2026-11-16'), 1394.26); // cuentas viejas: el mismo día no cuenta
+});

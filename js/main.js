@@ -173,6 +173,7 @@ const ACCIONES = {
   'quitar-cuenta': () => { ui.filtroCuenta = ''; renderVista(); },
   'ver-revisar': () => { ui.filtro = 'revisar'; ui.filtroCuenta = ''; irA('movimientos'); },
   'ver-categoria': d => { ui.filtro = d.id; ui.filtroCuenta = ''; irA('movimientos'); },
+  'ver-dinero': d => { ui.cuentaSel = d.id; renderVista(); },
   'ver-cuenta': d => { ui.filtroCuenta = d.id; ui.filtro = 'todos'; irA('movimientos'); },
   tema: d => { aplicarTema(d.tema); renderVista(); },
   'poner-monto': (d, el) => { el.closest('form').monto.value = d.monto; },
@@ -396,9 +397,24 @@ const FORMULARIOS = {
     const c = { ...previo, id, nombre: f.nombre.trim(), tipo: f.tipo, banco: f.banco || null, ultimos4: f.ultimos4 || null, cuenta4: f.cuenta4 || null };
     // Saldo de hoy: si cambió (o es la primera vez), se toma como nuevo punto de partida
     const saldoHoy = num(f.saldoHoy);
-    if (saldoHoy != null && saldoHoy !== saldoCuenta(previo, store.lista('movimientos'), hoyISO())) Object.assign(c, { saldoInicial: saldoHoy, fechaSaldo: hoyISO() });
+    if (saldoHoy != null && saldoHoy !== saldoCuenta(previo, store.lista('movimientos'), hoyISO())) Object.assign(c, { saldoInicial: saldoHoy, fechaSaldo: hoyISO(), saldoMomento: Date.now() });
     store.guardar('cuentas', c);
     vincularOrigenes();
+  },
+
+  // Mover dinero entre tus cuentas: no es gasto ni ingreso, solo cambia dónde está
+  mover(f, form) {
+    const monto = num(f.monto);
+    if (!monto || monto <= 0) return 'Escribe el monto';
+    if (!f.desdeId || !f.haciaId || f.desdeId === f.haciaId) return 'Elige dos cuentas distintas';
+    const id = form.dataset.id || store.nuevoId('m');
+    const previo = store.obtener('movimientos', id);
+    store.guardar('movimientos', {
+      ...(previo || { origen: 'manual', creado: Date.now() }), id, tipo: 'transferencia', monto, fecha: f.fecha || hoyISO(), nota: f.nota || '',
+      desdeId: f.desdeId, cuentaId: f.haciaId, categoriaId: null, comercio: f.nota || `${nombreCuenta(f.desdeId)} a ${nombreCuenta(f.haciaId)}`, revisar: false,
+    });
+    ui.cuentaSel = f.desdeId;
+    return { ok: 'Dinero movido' };
   },
 
   compartir(f, form) {
