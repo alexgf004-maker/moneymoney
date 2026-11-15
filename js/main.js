@@ -427,6 +427,13 @@ montar();
 procesos();
 render();
 
+// Desde un aviso de pago ("Ver pagos"): abrir en Deudas
+if (new URLSearchParams(location.search).get('ir') === 'deudas') {
+  irA('deudas', { tab: 'tarjetas' });
+  history.replaceState(null, '', location.pathname);
+}
+navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.ir) irA(e.data.ir, { tab: 'tarjetas' }); });
+
 // Las pruebas automáticas corren sin nube (window.__SIN_NUBE__)
 if (FIREBASE && !window.__SIN_NUBE__) {
   ui.nube = 'cargando';
