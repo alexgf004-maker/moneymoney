@@ -48,6 +48,20 @@ Se hace una sola vez y toma unos 20 minutos. Necesitas una computadora (en el te
 Los correos que ya leyó quedan con la etiqueta **MoneyMoney** en Gmail. Si un correo del banco no se entiende,
 aparece en la app en **Más → Correos del banco sin leer**.
 
+## 4. Avisos al teléfono
+
+1. En Apps Script agrega un archivo (botón + y luego "Secuencia de comandos") llamado `Avisos` y pega `apps-script/Avisos.gs`.
+2. Vuelve a pegar `Codigo.gs` y `appsscript.json` (tienen cambios para los avisos) y guarda.
+3. Ejecuta **`instalar`** otra vez. Google pedirá permisos nuevos: mandar notificaciones con tu Firebase y enviarte
+   correos a ti mismo. Acéptalos.
+4. En la app (en el teléfono, abierta desde el ícono): **Más > Avisos > Activar avisos** y acepta el permiso.
+5. En Apps Script ejecuta **`probarAviso`**: te debe llegar una notificación al teléfono. Si el registro muestra un
+   error, mándale una captura a Claude.
+
+Desde ahí: cada compra que llegue por correo te avisa al momento, y cada mañana a las 7 te llega un solo aviso con
+los pagos que vencen en 3 días o menos (o vencidos), con el total. También te llega por correo, si lo dejas activado
+en Más > Avisos.
+
 ## ¿Cómo sé que no se le escapa nada?
 
 - En la app, **Más > Correos revisados** muestra cada correo de tus bancos y qué se hizo con él: registrado, estado de

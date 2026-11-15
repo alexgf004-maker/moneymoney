@@ -10,3 +10,7 @@ export const FIREBASE = {
   messagingSenderId: '728919425462',
   appId: '1:728919425462:web:e777072794834805768117',
 };
+
+// Clave pública de push web (Firebase -> Configuración del proyecto -> Cloud Messaging -> Certificados de push web).
+// Tampoco es secreta: solo permite que este proyecto mande notificaciones a quien las active.
+export const VAPID = 'BOoEzGl1j1R9jI5beZ3P35YWG-YPsPgGExVJ52_I8V7bYVSwqLSuHQkRp4SDPRfw2DJrp1Fj88TaRi1ZWPK-NgU';

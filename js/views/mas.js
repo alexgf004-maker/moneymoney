@@ -17,6 +17,7 @@ const SUBS = {
   reglas: ['Reglas de categorías', reglasHTML],
   conexion: ['Conexión con Gmail', conexion],
   noleidos: ['Correos sin leer', noLeidos],
+  notificaciones: ['Avisos', notificaciones],
   revisados: ['Correos revisados', revisados],
   apariencia: ['Apariencia', apariencia],
   respaldo: ['Respaldo', respaldo],
@@ -43,6 +44,7 @@ export function vistaMas() {
     <div class="grupo-t">Automatización</div>
     <div class="card">
       ${fila('conexion', conectado ? 'nube' : 'correo', 'Conexión con Gmail', conectado ? `Conectado como ${esc(ui.usuario?.correo || '')}` : 'Registra solas tus compras con tarjeta')}
+      ${fila('notificaciones', 'alerta', 'Avisos', avisosActivos() ? 'Activados en este teléfono' : 'Recordatorios de pago y de compras')}
       ${lista('revision').length ? fila('revisados', 'revisar', 'Correos revisados', `${lista('revision').length} correos de tus bancos · qué se hizo con cada uno`) : ''}
       ${n ? fila('noleidos', 'bandeja', 'Correos sin leer', `${n} correo${n > 1 ? 's' : ''} del banco por revisar`) : ''}
     </div>
@@ -52,6 +54,41 @@ export function vistaMas() {
       ${fila('respaldo', 'base', 'Respaldo', 'Descargar o restaurar tus datos')}
     </div>
   `;
+}
+
+// ---------- Avisos (notificaciones al teléfono y por correo) ----------
+
+export function avisosActivos() {
+  try { return typeof Notification !== 'undefined' && Notification.permission === 'granted' && !!localStorage.getItem('moneymoney:notif'); } catch { return false; }
+}
+
+function notificaciones() {
+  const n = { pagos: true, compras: true, correo: true, ...(ajustes().notif || {}) };
+  const activos = avisosActivos();
+  const opcion = (clave, titulo, detalle) => `<label class="marca" style="margin:0;padding:12px 0;border-bottom:1px solid var(--bd)">
+      <input type="checkbox" data-accion="notif-pref" data-clave="${clave}" ${n[clave] ? 'checked' : ''}>
+      <span class="rt"><b style="font-weight:600">${titulo}</b><small class="mu" style="white-space:normal">${detalle}</small></span></label>`;
+  let estado;
+  if (ui.nube !== 'conectado') {
+    estado = `<div class="row" style="border:0">${tile('nube')}<span class="rt"><b style="white-space:normal">Primero entra con tu cuenta de Google</b><small style="white-space:normal">Los avisos los manda el script de tu Gmail usando tu Firebase.</small></span></div>
+      <button class="btn ancho" data-accion="entrar">${ic('entrar')} Entrar con Google</button>`;
+  } else if (!('Notification' in window)) {
+    estado = `<div class="row" style="border:0">${tile('alerta', 'bad')}<span class="rt"><b style="white-space:normal">Este navegador no permite notificaciones</b><small style="white-space:normal">Instala la app desde Chrome (menú, Agregar a pantalla principal) y ábrela desde el ícono.</small></span></div>`;
+  } else if (activos) {
+    estado = `<div class="row" style="border:0">${tile('check', 'ok')}<span class="rt"><b>Activados en este teléfono</b><small>Te llegan aunque no abras la app</small></span></div>
+      <div class="tc-acc"><button class="btn sm sec" data-accion="probar-notif">${ic('alerta')} Probar</button><button class="btn sm sec" data-accion="activar-notif">${ic('repetir')} Volver a registrar</button></div>`;
+  } else {
+    estado = `<div class="row" style="border:0">${tile('alerta', 'oro')}<span class="rt"><b style="white-space:normal">Activa los avisos en este teléfono</b><small style="white-space:normal">Te pedirá permiso para mostrar notificaciones.</small></span></div>
+      <button class="btn ancho" data-accion="activar-notif">${ic('alerta')} Activar avisos</button>`;
+  }
+  return `<div class="card pad">${estado}</div>
+    <div class="secc"><h3>Qué avisarte</h3></div>
+    <div class="card" style="padding:0 16px">
+      ${opcion('pagos', 'Pagos que vencen', '3 días antes, el día anterior, el mismo día y si se venció. Si varios vencen cerca, llega un solo aviso con todos.')}
+      ${opcion('compras', 'Cada compra con tarjeta', 'Cuando llega el correo del banco: monto, comercio y tarjeta.')}
+      ${opcion('correo', 'También por correo', 'Los avisos de pago te llegan además a tu Gmail, por si el teléfono no los muestra.')}
+    </div>
+    <small class="mu" style="margin:12px 4px">Los avisos de pago salen cada mañana a las 7, con la agenda que la app guarda cada vez que la abres. Ábrela al menos una vez por semana para que esté al día.</small>`;
 }
 
 // ---------- Gastos hormiga ----------

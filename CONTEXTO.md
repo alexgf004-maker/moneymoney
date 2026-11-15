@@ -58,6 +58,16 @@ Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, Net
   pronto"), con el total urgente; no se repiten en "Lo que viene". El mismo día, primero el más caro.
 - En "Lo que viene" y en Deudas: barra o borde rojo (urgente) o ámbar (pronto); Deudas ordena por fecha de pago.
 
+## Avisos (notificaciones)
+- La app registra el teléfono con Firebase Cloud Messaging (clave `VAPID` en config.js) y guarda el token en
+  `usuarios/{uid}/dispositivos/{id}`. sw.js muestra los avisos y abre la app al tocarlos.
+- La app publica `usuarios/{uid}/agenda` (próximos pagos) unos segundos después de cada cambio.
+- El script (Codigo.gs) manda: un aviso por cada compra o pago que llega por correo (solo en la revisión normal) y,
+  cada mañana a las 7 (`enviarRecordatorios`), UN aviso con los pagos a 3 días o menos o vencidos, armado por
+  `armarRecordatorio` (Avisos.gs, con pruebas). Copia por correo si `ajustes.notif.correo`.
+- No repite avisos (`AVISADOS` en propiedades del script) y no avisa de una tarjeta si ya llegó un pago a ella por
+  correo (`PAGADOS`), aunque la agenda esté vieja.
+
 ## Estructura
 
 ```

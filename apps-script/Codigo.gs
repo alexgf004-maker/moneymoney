@@ -125,6 +125,8 @@ function procesarCorreos(dias, forzar) {
         datos.id = id;
         enviar_(cfg, 'entrantes/' + id, datos);
         enviados++;
+        // Solo en la revisión normal (no al importar historial) y si el correo es reciente: avisar al teléfono
+        if (dias === DIAS_ATRAS && !forzar && datos.fecha && diasHasta_(datos.fecha, fechaISO_(new Date())) <= 2) avisarMovimiento_(cfg, id, datos);
       } else if (leido.analisis.banco && /sin-movimiento|estado-incompleto/.test(leido.analisis.resultado)) {
         // Correo del banco que no se pudo leer: se guarda el inicio para mejorar el lector
         enviar_(cfg, 'noLeidos/' + id, { id: id, fecha: correo.fecha, de: correo.de, asunto: correo.asunto.slice(0, 120), texto: texto.slice(0, 600) });
@@ -146,14 +148,121 @@ function procesarCorreos(dias, forzar) {
   else Logger.log('Terminado: se revisaron todos los correos.');
 }
 
-// Ejecutar UNA vez: crea la revisión automática cada 5 minutos
+// Ejecutar UNA vez (y otra vez después de actualizar el script): revisa el correo cada 5 minutos y manda los
+// avisos de pago cada mañana a las 7
 function instalar() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
-    if (t.getHandlerFunction() === 'procesarCorreos') ScriptApp.deleteTrigger(t);
+    if (t.getHandlerFunction() === 'procesarCorreos' || t.getHandlerFunction() === 'enviarRecordatorios') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('procesarCorreos').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('enviarRecordatorios').timeBased().everyDays(1).atHour(7).create();
   procesarCorreos();
-  Logger.log('Listo: se revisará el correo cada 5 minutos.');
+  Logger.log('Listo: se revisará el correo cada 5 minutos y los avisos de pago saldrán cada mañana a las 7.');
+}
+
+// ---------- Avisos al teléfono (Firebase Cloud Messaging) y por correo ----------
+
+var APP_URL = 'https://alexgf004-maker.github.io/moneymoney/';
+
+function leer_(cfg, ruta) {
+  var res = UrlFetchApp.fetch(cfg.url + '/usuarios/' + cfg.uid + '/' + ruta + '.json', {
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true,
+  });
+  return res.getResponseCode() === 200 ? JSON.parse(res.getContentText() || 'null') : null;
+}
+
+function borrar_(cfg, ruta) {
+  UrlFetchApp.fetch(cfg.url + '/usuarios/' + cfg.uid + '/' + ruta + '.json', {
+    method: 'delete', headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true,
+  });
+}
+
+// "https://moneymoney-62053-default-rtdb.firebaseio.com" -> "moneymoney-62053"
+function proyecto_(cfg) {
+  return PropertiesService.getScriptProperties().getProperty('PROJECT_ID') || cfg.url.replace(/^https:\/\//, '').replace(/-default-rtdb.*$/, '').replace(/\..*$/, '');
+}
+
+function preferencias_(cfg) {
+  var n = leer_(cfg, 'ajustes/general/notif') || {};
+  return { pagos: n.pagos !== false, compras: n.compras !== false, correo: n.correo !== false };
+}
+
+// Manda un aviso a todos los teléfonos registrados. Devuelve cuántos lo recibieron.
+function enviarPush_(cfg, titulo, cuerpo, tag) {
+  var dispositivos = leer_(cfg, 'dispositivos') || {};
+  var proyecto = proyecto_(cfg);
+  var ok = 0;
+  Object.keys(dispositivos).forEach(function (id) {
+    var res = UrlFetchApp.fetch('https://fcm.googleapis.com/v1/projects/' + proyecto + '/messages:send', {
+      method: 'post',
+      contentType: 'application/json',
+      // x-goog-user-project: el uso de la API se cuenta en el proyecto de Firebase y no en el del script
+      headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'x-goog-user-project': proyecto },
+      payload: JSON.stringify({ message: {
+        token: dispositivos[id].token,
+        notification: { title: titulo, body: cuerpo },
+        data: { tag: tag || 'moneymoney', url: APP_URL },
+        webpush: { fcm_options: { link: APP_URL } },
+      } }),
+      muteHttpExceptions: true,
+    });
+    var codigo = res.getResponseCode();
+    if (codigo === 200) ok++;
+    else if (codigo === 404 || /UNREGISTERED|INVALID_ARGUMENT/.test(res.getContentText())) borrar_(cfg, 'dispositivos/' + id); // teléfono que ya no existe
+    else Logger.log('No se pudo mandar el aviso (' + codigo + '): ' + res.getContentText().slice(0, 300));
+  });
+  return ok;
+}
+
+// Aviso de cada compra o pago que llega por correo
+function avisarMovimiento_(cfg, id, datos) {
+  try {
+    if (datos.tipo === 'pago' && datos.ultimos4) {
+      // Recordar el pago para no avisar de esa tarjeta aunque la agenda de la app esté vieja
+      var props = PropertiesService.getScriptProperties();
+      var pagados = JSON.parse(props.getProperty('PAGADOS') || '{}');
+      pagados[datos.ultimos4] = datos.fecha;
+      props.setProperty('PAGADOS', JSON.stringify(pagados));
+    }
+    if (!preferencias_(cfg).compras || datos.tipo === 'estado') return;
+    var tarjeta = datos.ultimos4 ? ' ···' + datos.ultimos4 : '';
+    if (datos.tipo === 'pago') enviarPush_(cfg, 'Pago de ' + dinero_(datos.monto) + ' registrado', 'A tu tarjeta' + tarjeta + '.', 'mov-' + id);
+    else if (datos.tipo === 'reembolso') enviarPush_(cfg, 'Devolución de ' + dinero_(datos.monto), (datos.comercio || 'Comercio') + tarjeta, 'mov-' + id);
+    else enviarPush_(cfg, 'Compra de ' + dinero_(datos.monto), (datos.comercio || 'Comercio') + ' · tarjeta' + tarjeta, 'mov-' + id);
+  } catch (e) {
+    Logger.log('Aviso de movimiento no enviado: ' + e.message);
+  }
+}
+
+// Cada mañana: avisa de los pagos que vencen pronto (lo arma Avisos.gs con la agenda que guarda la app)
+function enviarRecordatorios() {
+  var cfg = config_();
+  var prefs = preferencias_(cfg);
+  if (!prefs.pagos) return;
+  var agenda = leer_(cfg, 'agenda');
+  if (!agenda || !agenda.pagos) { Logger.log('Todavía no hay agenda: abre la app con la sesión iniciada.'); return; }
+  var props = PropertiesService.getScriptProperties();
+  var avisados = JSON.parse(props.getProperty('AVISADOS') || '{}');
+  var pagados = JSON.parse(props.getProperty('PAGADOS') || '{}');
+  var hoy = fechaISO_(new Date());
+  var aviso = armarRecordatorio(agenda.pagos, hoy, avisados, pagados);
+  if (!aviso) { Logger.log('Hoy no hay pagos que avisar.'); return; }
+  var recibidos = enviarPush_(cfg, aviso.titulo, aviso.cuerpo, 'pagos');
+  if (prefs.correo || !recibidos) {
+    MailApp.sendEmail(Session.getEffectiveUser().getEmail(), 'MoneyMoney: ' + aviso.titulo, aviso.cuerpo + '\n\nAbre MoneyMoney: ' + APP_URL);
+  }
+  aviso.claves.forEach(function (c) { avisados[c] = hoy; });
+  // Se olvidan los avisos de hace más de 40 días
+  Object.keys(avisados).forEach(function (c) { if (diasHasta_(avisados[c], hoy) > 40) delete avisados[c]; });
+  props.setProperty('AVISADOS', JSON.stringify(avisados));
+  Logger.log('Aviso enviado a ' + recibidos + ' teléfono(s)' + (prefs.correo || !recibidos ? ' y por correo' : '') + ': ' + aviso.titulo);
+}
+
+// Para comprobar que los avisos llegan al teléfono
+function probarAviso() {
+  var cfg = config_();
+  var n = enviarPush_(cfg, 'MoneyMoney', 'Así te llegarán los avisos de pago y de compras.', 'prueba');
+  Logger.log(n ? 'Aviso enviado a ' + n + ' teléfono(s).' : 'No llegó a ningún teléfono: activa los avisos en la app (Más > Avisos) y revisa el mensaje de error de arriba.');
 }
 
 // Ejecutar UNA vez después de instalar: trae los últimos 60 días (compras, pagos y estados de cuenta)

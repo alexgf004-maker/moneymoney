@@ -4,16 +4,16 @@ import * as store from './store.js';
 import { ui, aviso, aplicarTema } from './ui.js';
 import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
-import { FIREBASE } from './config.js';
-import { iniciarFirebase, entrarConGoogle, salir } from './firebase.js';
+import { FIREBASE, VAPID } from './config.js';
+import { iniciarFirebase, entrarConGoogle, salir, activarNotificaciones, avisoDePrueba } from './firebase.js';
 import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
-import { recurrentesPendientes } from './domain/resumen.js';
+import { recurrentesPendientes, proximosPagos } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta, movimientoDeAjuste, ultimoCorte } from './domain/tarjetas.js';
 import { saldoCuenta } from './domain/cuentas.js';
 import { leerMonto, r2 } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
-import { nombreCuenta, estadosDe, estadoDe } from './consultas.js';
+import { nombreCuenta, estadosDe, estadoDe, tarjetas, prestamos, recurrentes, movs } from './consultas.js';
 import { datosEjemplo } from './demo.js';
 
 const num = v => (v === '' || v === null || v === undefined ? null : leerMonto(v));
@@ -96,6 +96,25 @@ const ACCIONES = {
     aviso(`Ajustado: se agregó un ${c.diferencia > 0 ? 'cargo' : 'crédito'} de $${Math.abs(c.diferencia).toFixed(2)}`);
   },
   'anotar-revision': d => abrir('movimiento', { revision: d.id }),
+  // Notificaciones: se activan por teléfono (cada uno guarda su token); qué avisar se guarda en los ajustes
+  'activar-notif': async () => {
+    try {
+      aviso('Activando…');
+      const id = await activarNotificaciones(VAPID);
+      try { localStorage.setItem('moneymoney:notif', id); } catch { /* sin almacenamiento */ }
+      if (!store.ajustes().notif) store.guardarAjustes({ notif: { pagos: true, compras: true, correo: true } });
+      programarAgenda();
+      renderVista();
+      aviso('Avisos activados en este teléfono');
+    } catch (e) {
+      aviso(e.message || 'No se pudieron activar los avisos', 'error');
+    }
+  },
+  'probar-notif': () => avisoDePrueba().catch(() => aviso('Primero activa los avisos', 'error')),
+  'notif-pref': d => {
+    const actual = { pagos: true, compras: true, correo: true, ...(store.ajustes().notif || {}) };
+    store.guardarAjustes({ notif: { ...actual, [d.clave]: !actual[d.clave] } });
+  },
   // Suscripciones: marcar para cancelar (o desmarcar) y quitar las que no son suscripciones
   'sus-cancelar': d => {
     const marcas = { ...(store.ajustes().suscripciones || {}) };
@@ -190,7 +209,9 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   const d = el.dataset;
-  if (d.ajuste) {
+  if (d.accion === 'notif-pref') {
+    ACCIONES['notif-pref'](d);
+  } else if (d.ajuste) {
     store.guardarAjustes({ [d.ajuste]: el.value.trim() });
   } else if (d.ajusteNum) {
     const v = leerMonto(el.value);
@@ -381,7 +402,27 @@ store.cargarLocal();
 store.alCambiar(origen => {
   if (origen === 'remoto') procesos();
   renderVista();
+  programarAgenda();
 });
+
+// Agenda de pagos en la nube: el script de Gmail la lee cada mañana para mandar los avisos.
+// Se publica unos segundos después del último cambio, y solo si cambió.
+let ultimaAgenda = '';
+let esperaAgenda;
+function programarAgenda() {
+  clearTimeout(esperaAgenda);
+  esperaAgenda = setTimeout(publicarAgenda, 2000);
+}
+function publicarAgenda() {
+  if (ui.nube !== 'conectado') return;
+  const hoy = hoyISO();
+  const pagos = proximosPagos({ tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), movs: movs(), estadosDe }, hoy, 30)
+    .map(p => ({ id: p.id, titulo: p.titulo, fecha: p.fecha, monto: p.monto, minimo: p.minimo ?? null, tipo: p.tipo, vencido: !!p.vencido }));
+  const json = JSON.stringify(pagos);
+  if (json === ultimaAgenda) return;
+  ultimaAgenda = json;
+  store.publicar('agenda', { actualizado: new Date().toISOString(), hoy, pagos });
+}
 montar();
 procesos();
 render();
@@ -395,6 +436,7 @@ if (FIREBASE && !window.__SIN_NUBE__) {
       ui.nube = usuario ? 'conectado' : 'sin-sesion';
       store.conectarRemoto(escritor);
       renderVista();
+      programarAgenda();
     },
     alDatos(valor, primera) {
       // Primera vez en la nube con datos ya en el teléfono: se suben en vez de borrarlos

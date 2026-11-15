@@ -113,3 +113,8 @@ export function borrarTodo() {
   guardarLocal();
   avisar('local');
 }
+
+// Escribe solo en la nube (no es una colección de la app): p. ej. la agenda que lee el script para avisar
+export function publicar(ruta, valor) {
+  remoto?.escribir(ruta, limpio(valor));
+}

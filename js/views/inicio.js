@@ -10,6 +10,7 @@ import { categoria } from '../domain/categorias.js';
 import { dinero, sumar } from '../domain/dinero.js';
 import { hoyISO, mesDe, mesAnterior, nombreMes, fechaCorta, fechaLarga, cuandoEs, deISO, sumarMeses } from '../domain/fechas.js';
 import { planActual } from './deudas.js';
+import { avisosActivos } from './mas.js';
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const capital = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -150,6 +151,8 @@ function pendientes(m) {
   if (detectadas) items.push([`${detectadas} tarjeta${detectadas > 1 ? 's' : ''} encontrada${detectadas > 1 ? 's' : ''}`, 'data-accion="ir" data-vista="deudas" data-tab="tarjetas"']);
   if (porRevisar) items.push([`${porRevisar} movimiento${porRevisar > 1 ? 's' : ''} por revisar`, 'data-accion="ver-revisar"']);
   if (correos) items.push([`${correos} correo${correos > 1 ? 's' : ''} sin registrar`, 'data-accion="ir" data-vista="mas" data-sub="revisados"']);
+  // Con la nube conectada, recordar activar los avisos de pago en este teléfono
+  if (ui.nube === 'conectado' && 'Notification' in window && !avisosActivos()) items.push(['Activa los avisos de pago', 'data-accion="ir" data-vista="mas" data-sub="notificaciones"']);
   if (!items.length) return '';
   const total = items.length === 1 ? items[0][0] : `${items.length} pendientes`;
   return `<button class="aviso-fila" ${items[0][1]}>${ic('revisar')}<span class="rt"><b>${total}</b>${items.length > 1 ? `<small>${items.map(i => i[0]).join(' · ')}</small>` : '<small>Toca para revisarlo</small>'}</span><span class="mu">${ic('chevron-right')}</span></button>`;
