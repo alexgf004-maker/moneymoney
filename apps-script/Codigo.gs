@@ -125,7 +125,7 @@ function procesarCorreos(dias, forzar) {
         datos.id = id;
         enviar_(cfg, 'entrantes/' + id, datos);
         enviados++;
-      } else if (leido.analisis.banco && /sin-movimiento|sin-tarjeta|estado-incompleto/.test(leido.analisis.resultado)) {
+      } else if (leido.analisis.banco && /sin-movimiento|estado-incompleto/.test(leido.analisis.resultado)) {
         // Correo del banco que no se pudo leer: se guarda el inicio para mejorar el lector
         enviar_(cfg, 'noLeidos/' + id, { id: id, fecha: correo.fecha, de: correo.de, asunto: correo.asunto.slice(0, 120), texto: texto.slice(0, 600) });
         noLeidos++;

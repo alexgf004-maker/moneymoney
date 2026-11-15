@@ -33,6 +33,13 @@ Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, Net
 - **Propuestas de diseño:** siempre 3 opciones con imágenes, nunca solo texto.
 - Las piezas están documentadas al inicio de `css/styles.css`; antes de crear estilos nuevos, reusar las que existen.
 
+## Inicio: opción A "Pagos primero" (elegida el 15 nov 2026 entre 3 propuestas)
+- La tarjeta premium es el próximo pago (o el vencido), con mínimo, total a pagar en 30 días y "Registrar pago".
+  Si no hay pagos en 30 días: "Al día" y el próximo corte.
+- Debajo: accesos rápidos, UNA línea de pendientes (tarjetas encontradas, movimientos por revisar, correos sin
+  registrar), "Lo que viene" (resto de pagos y tarjetas que cortan hoy o mañana), "Tu deuda" y "Tu mes".
+- Prioridad acordada con el usuario: 1) qué pagar y cuándo, 2) cuánto debo, 3) en qué se va el dinero.
+
 ## Estructura
 
 ```

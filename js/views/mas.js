@@ -53,6 +53,7 @@ const RESULTADOS = {
   estado: ['Estado de cuenta', 'ok', 'calendario'],
   publicidad: ['Publicidad', '', 'bandeja'],
   aviso: ['Aviso sin montos', '', 'info'],
+  transferencia: ['Movimiento de tu cuenta, no de tarjeta', '', 'cartera'],
   'sin-tarjeta': ['Sin tarjeta: no se registró', 'warn', 'alerta'],
   'sin-movimiento': ['No se entendió', 'warn', 'alerta'],
   'estado-incompleto': ['Estado de cuenta incompleto', 'warn', 'alerta'],

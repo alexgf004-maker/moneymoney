@@ -150,7 +150,7 @@ function prestamosHTML(d, hoy) {
   }).join('');
 }
 
-function planActual(hoy) {
+export function planActual(hoy) {
   const deudas = deudasParaPlan(hoy);
   if (!deudas.length) return null;
   const minimos = sumar(deudas.map(d => d.minimo));

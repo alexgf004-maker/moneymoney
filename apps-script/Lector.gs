@@ -245,7 +245,11 @@ function analizarCorreo(correo) {
     if (!datos.fechaCorte || datos.contado === null) return nada('estado-incompleto');
   } else {
     datos = lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
-    if (!datos) return nada(PALABRAS_TRANSACCION.test(texto) ? 'sin-movimiento' : 'aviso');
+    if (!datos) {
+      // Transferencias, abonos y pagos desde la cuenta de banco: se ignoran a propósito (no son de tarjeta)
+      if (/transferencia|env[ií]o de dinero|pago a terceros|abono a (tu|su) cuenta|dep[oó]sito|cuenta de ahorro|cuenta corriente|pago de servicio/i.test(texto)) return nada('transferencia');
+      return nada(PALABRAS_TRANSACCION.test(texto) ? 'sin-movimiento' : 'aviso');
+    }
     // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otro aviso
     if (!datos.ultimos4) return nada('sin-tarjeta', datos.monto);
     // Sin banco reconocido solo se acepta una alerta clara de tarjeta (con dígitos y monto)

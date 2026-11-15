@@ -123,8 +123,10 @@ test('correos del banco: compras, pagos y estados de cuenta llegan solos', async
     } }));
   });
   await page.goto('/');
-  await expect(page.getByRole('button', { name: /Encontré 2 tarjetas en tus correos/ })).toBeVisible();
-  await page.getByRole('button', { name: /Encontré 2 tarjetas/ }).click();
+  // Los pendientes van en una sola línea; la primera acción lleva a las tarjetas encontradas
+  const pendientes = page.getByRole('button', { name: /pendientes/ });
+  await expect(pendientes).toContainText('2 tarjetas encontradas');
+  await pendientes.click();
   await page.locator('[data-pre="credicomer|2222"]').click();
   const f = page.locator('form[data-form=tarjeta]');
   await expect(f.locator('[name=nombre]')).toHaveValue('Visa Emma');
@@ -207,5 +209,19 @@ test('compras en cuotas: extrafinanciamiento y compra nueva a tasa cero', async 
   await expect(visa).toContainText('Cocina');
   await expect(visa).toContainText('cuota 0 de 6');
   await expect(visa).toContainText('+ $650.00 en cuotas');
+  expect(errores).toEqual([]);
+});
+
+test('inicio: el próximo pago es lo primero, luego la deuda y el mes', async ({ page }) => {
+  const errores = await conEjemplo(page);
+  const pc = page.locator('#vista .pc');
+  await expect(pc).toContainText(/Tu próximo pago|Pago vencido/);
+  await expect(pc.getByRole('button', { name: 'Registrar pago' })).toBeVisible();
+  await expect(page.locator('#vista')).toContainText('Lo que viene');
+  await expect(page.locator('#vista')).toContainText('Debes en total');
+  await expect(page.locator('#vista')).toContainText('Gastado en');
+  // Registrar el pago desde la tarjeta principal abre la ventana de pago de esa deuda
+  await pc.getByRole('button', { name: 'Registrar pago' }).click();
+  await expect(page.locator('form[data-form=pago]')).toBeVisible();
   expect(errores).toEqual([]);
 });

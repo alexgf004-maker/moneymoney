@@ -85,13 +85,16 @@ export function proximosPagos({ tarjetas, prestamos, recurrentes, movs, estadosD
   for (const t of tarjetas) {
     const e = estadoTarjeta(t, movs, hoy, estadosDe(t));
     if (e.contadoPendiente > 0 && e.fechaPago <= hasta) {
-      lista.push({ fecha: e.fechaPago, titulo: `${t.nombre} ···${t.ultimos4}`, detalle: `Mínimo aprox. ${dinero(e.minimoPendiente)}`, monto: e.contadoPendiente, tipo: 'tarjeta', id: t.id, vencido: e.vencido });
+      lista.push({
+        fecha: e.fechaPago, titulo: `${t.nombre} ···${t.ultimos4}`, detalle: `${e.fuente === 'banco' ? 'Mínimo' : 'Mínimo aprox.'} ${dinero(e.minimoPendiente)}`,
+        monto: e.contadoPendiente, minimo: e.minimoPendiente, minimoExacto: e.fuente === 'banco', tipo: 'tarjeta', id: t.id, vencido: e.vencido,
+      });
     }
   }
   for (const p of prestamos) {
     const e = estadoPrestamo(p, movs, hoy);
     if (e.proxima && e.proxima.fecha <= hasta && !e.cuotaRegistrada) {
-      lista.push({ fecha: e.proxima.fecha, titulo: p.nombre, detalle: `Cuota ${e.cuotasPagadas + 1} de ${e.cuotasTotales}`, monto: e.cuota, tipo: 'prestamo', id: p.id });
+      lista.push({ fecha: e.proxima.fecha, titulo: p.nombre, detalle: `Cuota ${e.cuotasPagadas + 1} de ${e.cuotasTotales}`, monto: e.cuota, tipo: 'prestamo', id: p.id, vencido: false });
     }
   }
   for (const r of recurrentes) {
