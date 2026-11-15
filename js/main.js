@@ -11,7 +11,7 @@ import { recurrentesPendientes, proximosPagos } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta, movimientoDeAjuste, ultimoCorte } from './domain/tarjetas.js';
 import { saldoCuenta } from './domain/cuentas.js';
-import { leerMonto, r2 } from './domain/dinero.js';
+import { leerMonto, r2, dinero } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { nombreCuenta, estadosDe, estadoDe, tarjetas, prestamos, recurrentes, movs } from './consultas.js';
 import { datosEjemplo } from './demo.js';
@@ -120,6 +120,14 @@ const ACCIONES = {
     const marcas = { ...(store.ajustes().suscripciones || {}) };
     marcas[d.clave] = { ...(marcas[d.clave] || {}), cancelar: !marcas[d.clave]?.cancelar };
     store.guardarAjustes({ suscripciones: marcas });
+  },
+  'sus-no-compartida': d => {
+    const marcas = { ...(store.ajustes().suscripciones || {}) };
+    const { entre, miParte, ...resto } = marcas[d.clave] || {};
+    marcas[d.clave] = resto;
+    store.guardarAjustes({ suscripciones: marcas });
+    cerrar();
+    aviso('Vuelve a contar completa');
   },
   'sus-ignorar': d => {
     const marcas = { ...(store.ajustes().suscripciones || {}), [d.clave]: { ignorar: true } };
@@ -371,6 +379,15 @@ const FORMULARIOS = {
     store.guardar('cuentas', c);
   },
 
+  compartir(f, form) {
+    const total = Number(form.dataset.total);
+    const miParte = num(f.miParte);
+    if (miParte !== null && (miParte <= 0 || miParte > total)) return `Tu parte debe ser mayor que cero y no más de ${dinero(total)}`;
+    const marcas = { ...(store.ajustes().suscripciones || {}) };
+    marcas[form.dataset.id] = { ...(marcas[form.dataset.id] || {}), entre: Number(f.entre) || 0, miParte: miParte || null };
+    store.guardarAjustes({ suscripciones: marcas });
+    return { ok: 'Ahora cuenta solo tu parte' };
+  },
   regla(f, form) {
     const id = form.dataset.id || store.nuevoId('r');
     const regla = { id, patron: f.patron.trim().toUpperCase(), categoriaId: f.categoriaId || 'otros' };

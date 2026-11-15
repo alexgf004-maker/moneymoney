@@ -256,6 +256,10 @@ test('hábitos: gastos hormiga, suscripciones y cuándo termino de pagar', async
   await page.getByRole('button', { name: 'Cancelarla' }).first().click();
   await expect(page.locator('#vista')).toContainText('Para cancelar');
   await expect(page.locator('#vista')).toContainText('si cancelas');
+  await page.getByRole('button', { name: 'La pago con otros' }).first().click();
+  await page.locator('.hoja .opciones label', { hasText: '2' }).click();
+  await page.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.locator('#vista')).toContainText('Tu parte de');
   const antes = await page.locator('[data-accion="sus-ignorar"]').count();
   await page.getByRole('button', { name: 'No es suscripción' }).last().click();
   await expect(page.locator('[data-accion="sus-ignorar"]')).toHaveCount(antes - 1);

@@ -1,6 +1,6 @@
 import { ui, esc, ic, campo, entrada, selector, opciones, marca, titulo } from '../ui.js';
 import { obtener } from '../store.js';
-import { movs, opcionesPagoCon, opcionesDeuda, opcionesCuentas, BANCOS, nombreCuenta, estadoDe, tarjetasDetectadas } from '../consultas.js';
+import { movs, suscripcionesActuales, opcionesPagoCon, opcionesDeuda, opcionesCuentas, BANCOS, nombreCuenta, estadoDe, tarjetasDetectadas } from '../consultas.js';
 import { CATEGORIAS, INGRESOS, patronSugerido } from '../domain/categorias.js';
 import { estadoPrestamo, tablaPagos, partesCuota } from '../domain/prestamo.js';
 import { saldoCuenta } from '../domain/cuentas.js';
@@ -10,7 +10,7 @@ import { hoyISO, fechaCorta } from '../domain/fechas.js';
 // Ventana con forma de hoja que sube desde abajo
 export function vistaModal() {
   const m = ui.modal;
-  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla, plan }[m.tipo];
+  const fn = m && { movimiento, tarjeta, prestamo, pagar, recurrente, cuenta, regla, tabla, plan, compartir }[m.tipo];
   if (!fn) return '';
   const { titulo, cuerpo } = fn(m);
   return `<div class="hoja-fondo" data-accion="cerrar-fondo">
@@ -230,6 +230,22 @@ function regla({ id }) {
     ${pie(botonBorrar('reglas', id))}
   </form>`;
   return { titulo: r ? 'Regla' : 'Nueva regla', cuerpo };
+}
+
+// Suscripción que pagas tú pero se comparte (el internet entre 4): solo cuenta tu parte. id = clave del comercio
+function compartir({ id }) {
+  const s = suscripcionesActuales().lista.find(x => x.clave === id);
+  if (!s) return { titulo: 'Compartir', cuerpo: '<p class="mu">Ya no aparece esta suscripción.</p>' };
+  const entre = String(s.compartida?.entre || 4);
+  const exacta = s.compartida && !s.compartida.entre ? s.monto : '';
+  const quitar = s.compartida ? `<button type="button" class="btn sec" data-accion="sus-no-compartida" data-clave="${esc(s.clave)}">Ya no la comparto</button>` : '';
+  const cuerpo = `<form data-form="compartir" data-id="${esc(s.clave)}" data-total="${s.montoTotal}">
+    <p class="mu" style="margin:0 0 14px">${esc(s.nombre)} cobra ${dinero(s.montoTotal)} al mes. En tus suscripciones solo contará lo que pagas tú. La tarjeta sigue debiendo el cobro completo.</p>
+    ${campo('¿Entre cuántas personas lo pagan?', opciones('entre', [2, 3, 4, 5, 6].map(n => [String(n), `${n}`]), entre))}
+    ${campo('O lo que pagas tú, si es otro monto', entrada('miParte', exacta, { tipo: 'number', paso: '0.01', min: 0, ph: 'Opcional' }), 'Si lo dejas vacío se divide el total en partes iguales')}
+    ${pie(quitar)}
+  </form>`;
+  return { titulo: 'La pago con otros', cuerpo };
 }
 
 function tabla({ id }) {

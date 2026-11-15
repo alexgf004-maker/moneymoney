@@ -401,3 +401,18 @@ test('las claves de suscripciones no llevan puntos (Firebase no los acepta)', as
   assert.equal(claveComercio('PEDIDOSYA.COM SV'), 'PEDIDOSYACOM');
   assert.ok(!/[.#$[\]/]/.test(claveComercio('GOOGLE *ChatGPT g.co/')));
 });
+
+test('suscripción compartida: cuenta solo tu parte', async () => {
+  const { suscripciones } = await import('../js/domain/habitos.js');
+  const g = (comercio, monto, fecha) => ({ id: comercio + fecha, tipo: 'gasto', comercio, monto, fecha, cuentaId: 't', categoriaId: 'servicios' });
+  const movs = [g('TELECOM -C', 47.88, '2026-09-30'), g('TELECOM -C', 47.88, '2026-10-31'), g('NETFLIX', 9.99, '2026-10-08'), g('NETFLIX', 9.99, '2026-11-08')];
+  const entre4 = suscripciones(movs, [], '2026-11-14', { TELECOM: { entre: 4 } });
+  const tel = entre4.lista.find(x => x.clave === 'TELECOM');
+  assert.equal(tel.monto, 11.97);
+  assert.equal(tel.montoTotal, 47.88);
+  assert.deepEqual({ ...tel.compartida }, { entre: 4 });
+  assert.equal(entre4.alMes, 21.96);
+  const exacta = suscripciones(movs, [], '2026-11-14', { TELECOM: { entre: 4, miParte: 12 } });
+  assert.equal(exacta.lista.find(x => x.clave === 'TELECOM').monto, 12);
+  assert.equal(suscripciones(movs, [], '2026-11-14', {}).lista.find(x => x.clave === 'TELECOM').compartida, null);
+});

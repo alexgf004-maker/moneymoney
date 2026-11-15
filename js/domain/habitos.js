@@ -44,6 +44,14 @@ const CONSUMO = new Set(['super', 'comida', 'gasolina', 'transporte', 'salud', '
 const PATRONES_SUSCRIPCION = REGLAS_BASE.filter(([, c]) => c === 'suscripciones').map(([p]) => normalizar(p));
 
 // marcas: { [clave]: { cancelar: true } | { ignorar: true } } (decisiones del usuario)
+// Suscripción compartida (p. ej. el internet entre 4): cuenta solo tu parte. marca = { entre, miParte }
+// `miParte` es lo que pagas tú si lo pusiste exacto; si no, el total entre el número de personas.
+function parte(total, marca = {}) {
+  const entre = marca.entre > 1 ? marca.entre : 0;
+  const mia = marca.miParte > 0 ? r2(Math.min(marca.miParte, total)) : entre ? r2(total / entre) : r2(total);
+  return { monto: mia, montoTotal: r2(total), compartida: mia < total ? { entre: entre || null } : null, alAnio: r2(mia * 12) };
+}
+
 export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
   const desde = sumarMeses(hoy, -4);
   const grupos = new Map();
@@ -68,8 +76,8 @@ export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
     if (marcas[g.clave]?.ignorar) continue;
     const ultimo = g.cobros[g.cobros.length - 1];
     lista.push({
-      clave: g.clave, nombre: ultimo.comercio, monto: ultimo.monto, mesesVistos: meses.size, ultimoCobro: ultimo.fecha,
-      proximo: sumarMeses(ultimo.fecha, 1), cuentaId: ultimo.cuentaId, alAnio: r2(ultimo.monto * 12),
+      clave: g.clave, nombre: ultimo.comercio, ...parte(ultimo.monto, marcas[g.clave]), mesesVistos: meses.size, ultimoCobro: ultimo.fecha,
+      proximo: sumarMeses(ultimo.fecha, 1), cuentaId: ultimo.cuentaId,
       cancelar: !!marcas[g.clave]?.cancelar, origen: 'detectada',
     });
   }
@@ -77,7 +85,7 @@ export function suscripciones(movs, recurrentes, hoy, marcas = {}) {
   for (const r of recurrentes.filter(x => x.tipo === 'gasto' && x.categoriaId === 'suscripciones' && x.activo !== false)) {
     const k = claveComercio(r.nombre);
     if (lista.some(s => s.clave === k) || marcas[k]?.ignorar) continue;
-    lista.push({ clave: k, nombre: r.nombre, monto: r.monto, mesesVistos: 0, ultimoCobro: null, proximo: null, cuentaId: r.cuentaId, alAnio: r2(r.monto * 12), cancelar: !!marcas[k]?.cancelar, origen: 'fijo' });
+    lista.push({ clave: k, nombre: r.nombre, ...parte(r.monto, marcas[k]), mesesVistos: 0, ultimoCobro: null, proximo: null, cuentaId: r.cuentaId, cancelar: !!marcas[k]?.cancelar, origen: 'fijo' });
   }
   lista.sort((a, b) => b.monto - a.monto);
   const activas = lista.filter(s => !s.cancelar);

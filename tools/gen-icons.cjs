@@ -17,7 +17,7 @@ const MAPA = {
   regla: 'wand-sparkles', calculadora: 'calculator', tabla: 'table-2', repetir: 'repeat', banco: 'landmark',
   cartera: 'wallet', billete: 'banknote', tarjeta: 'credit-card', pago: 'hand-coins', ingreso: 'arrow-down-left',
   devolucion: 'undo-2', grafica: 'chart-pie', escalera: 'chart-no-axes-column-decreasing', bandeja: 'inbox',
-  ayuda: 'circle-help', ojo: 'eye', mas2: 'ellipsis', papelera: 'trash', paleta: 'palette', base: 'database', cerdito: 'piggy-bank', fuego: 'flame', bola: 'circle-dot', fiesta: 'party-popper',
+  ayuda: 'circle-help', ojo: 'eye', mas2: 'ellipsis', papelera: 'trash', paleta: 'palette', base: 'database', cerdito: 'piggy-bank', fuego: 'flame', bola: 'circle-dot', fiesta: 'party-popper', usuarios: 'users',
   // categorías
   'cat-super': 'shopping-cart', 'cat-comida': 'utensils', 'cat-gasolina': 'fuel', 'cat-transporte': 'car',
   'cat-servicios': 'zap', 'cat-suscripciones': 'tv', 'cat-salud': 'pill', 'cat-compras': 'shopping-bag',

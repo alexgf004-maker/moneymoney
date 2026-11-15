@@ -124,12 +124,13 @@ function suscripcionesHTML() {
       <div class="big">${montoGrande(dinero(s.alMes))}<small style="font-size:16px"> al mes</small></div>
       <div class="pc-sub">${dinero(s.alAnio)} al año</div>
     </section>
-    <p class="mu" style="margin:14px 4px">Cobros que se repiten cada mes con un monto parecido, o servicios conocidos (Netflix, Spotify, apps…). Márcalas para cancelar o quítalas si no son suscripciones.</p>
+    <p class="mu" style="margin:14px 4px">Cobros que se repiten cada mes con un monto parecido, o servicios conocidos (Netflix, Spotify, apps…). Márcalas para cancelar, pon solo tu parte si la pagas con otros, o quítalas si no son suscripciones.</p>
     <div class="card">${s.lista.length ? s.lista.map(x => `<div class="row ${x.cancelar ? 'apagado' : ''}">
       ${tile('cat-suscripciones', x.cancelar ? '' : 'oro')}
-      <span class="rt"><b>${esc(x.nombre)}</b><small>${x.cancelar ? '<span class="chip warn">Para cancelar</span>' : ''}${x.ultimoCobro ? `Último cobro ${fechaCorta(x.ultimoCobro)}` : 'Pago fijo'}${x.cuentaId ? ` · ${esc(nombreCuenta(x.cuentaId))}` : ''} · ${dinero(x.alAnio)} al año</small>
-        <span style="display:flex;gap:16px;margin-top:4px;white-space:nowrap">
+      <span class="rt"><b>${esc(x.nombre)}</b>${x.compartida ? `<small><span class="chip">${ic('usuarios')} Tu parte de ${dinero(x.montoTotal)}${x.compartida.entre ? `, entre ${x.compartida.entre}` : ''}</span></small>` : ''}<small>${x.cancelar ? '<span class="chip warn">Para cancelar</span>' : ''}${x.ultimoCobro ? `Último cobro ${fechaCorta(x.ultimoCobro)}` : 'Pago fijo'}${x.cuentaId ? ` · ${esc(nombreCuenta(x.cuentaId))}` : ''} · ${dinero(x.alAnio)} al año</small>
+        <span style="display:flex;flex-wrap:wrap;column-gap:16px;row-gap:2px;margin-top:4px;white-space:nowrap">
           <button class="link" style="font-size:12.5px" data-accion="sus-cancelar" data-clave="${esc(x.clave)}">${x.cancelar ? 'La sigo pagando' : 'Cancelarla'}</button>
+          <button class="link" style="font-size:12.5px" data-accion="modal" data-tipo="compartir" data-id="${esc(x.clave)}">${x.compartida ? 'Cambiar mi parte' : 'La pago con otros'}</button>
           <button class="link" style="font-size:12.5px;color:var(--mu)" data-accion="sus-ignorar" data-clave="${esc(x.clave)}">No es suscripción</button>
         </span></span>
       <span class="amt">${dinero(x.monto)}<small>al mes</small></span>

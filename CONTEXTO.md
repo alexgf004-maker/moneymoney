@@ -151,3 +151,9 @@ día de margen) se descartan al llegar (`esDuplicado`).
   cada uno con sus cuotas en puntos (barra si son más de 24), cuánto se libera al mes y en qué mes es la última.
 - Abajo: "Desde {mes} pagarás al mes $X" contra lo que pagas hoy. Si nada termina en 12 meses, la sección no aparece.
 - Lógica en `porTerminar` (js/domain/habitos.js); "Detalle" lleva a Más > Cuándo termino de pagar.
+
+## Suscripciones compartidas
+- "La pago con otros" (Más > Suscripciones): entre cuántas personas, o el monto exacto de tu parte.
+  Se guarda en ajustes.suscripciones[clave] = { entre, miParte }. Suscripciones, Inicio y "Cuándo termino de pagar"
+  cuentan solo tu parte; la deuda de la tarjeta sigue con el cobro completo.
+- Las claves de comercio no llevan puntos (Firebase no acepta . # $ [ ] / en nombres de campo).
