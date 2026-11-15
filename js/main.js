@@ -10,7 +10,7 @@ import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrante
 import { recurrentesPendientes, proximosPagos } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
 import { estadoTarjeta, movimientoDeAjuste, ultimoCorte } from './domain/tarjetas.js';
-import { saldoCuenta } from './domain/cuentas.js';
+import { saldoCuenta, vincularPagos } from './domain/cuentas.js';
 import { leerMonto, r2, dinero } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { nombreCuenta, estadosDe, estadoDe, tarjetas, prestamos, recurrentes, movs } from './consultas.js';
@@ -52,14 +52,14 @@ function generarFijos() {
 }
 
 // Pagos que llegaron antes de registrar la cuenta de donde salieron: se enlazan cuando ya existe (por sus últimos 4)
+// También usa el aviso de tu banco de que salió dinero de tu cuenta (Transfer365 de Agrícola, en "Correos revisados"):
+// si salió el mismo monto en esos días, el pago salió de tu cuenta de ese banco.
 function vincularOrigenes() {
-  const cuentas = store.lista('cuentas').filter(c => c.cuenta4);
+  const cuentas = store.lista('cuentas').filter(c => c.tipo !== 'efectivo');
   if (!cuentas.length) return;
-  const cambios = store.lista('movimientos')
-    .filter(m => m.tipo === 'pago' && m.origen4 && !m.desdeId)
-    .map(m => ({ m, c: cuentas.find(c => c.cuenta4 === m.origen4) }))
-    .filter(x => x.c)
-    .map(x => ({ ...x.m, desdeId: x.c.id }));
+  const salidas = store.lista('revision').filter(r => r.resultado === 'transferencia' && r.monto > 0 && r.banco && r.fecha);
+  const pagos = store.lista('movimientos').filter(m => m.tipo === 'pago' && m.origen === 'correo' && !m.desdeId);
+  const cambios = vincularPagos(pagos, cuentas, salidas, store.lista('movimientos'));
   if (cambios.length) store.guardarVarios('movimientos', cambios, { silencioso: true });
 }
 

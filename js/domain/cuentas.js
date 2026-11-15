@@ -124,3 +124,24 @@ function pagosConocidos({ cuentas, movs, tarjetas, prestamos, recurrentes, estad
   }
   return pagos.sort((a, b) => a.fecha.localeCompare(b.fecha));
 }
+
+// Pagos a tarjeta que llegaron por correo sin decir de qué cuenta salieron: se enlazan a tu cuenta
+//  1) por los últimos 4 de la cuenta de origen (origen4), o
+//  2) por el aviso de tu banco de que salió el mismo monto (±2 días) de tu cuenta, si tienes una sola cuenta en ese banco.
+// salidas: registros de "Correos revisados" con resultado 'transferencia' { id, banco, monto, fecha }
+// usados: pagos ya enlazados, para no usar el mismo aviso dos veces
+export function vincularPagos(pagos, cuentas, salidas = [], movs = []) {
+  const usadas = new Set(movs.filter(m => m.salidaId).map(m => m.salidaId));
+  const cambios = [];
+  for (const m of pagos) {
+    const porNumero = m.origen4 && cuentas.find(c => c.cuenta4 === m.origen4);
+    if (porNumero) { cambios.push({ ...m, desdeId: porNumero.id }); continue; }
+    const s = salidas.find(x => !usadas.has(x.id) && Math.abs(x.monto - m.monto) < 0.01 && Math.abs(diasEntre(x.fecha, m.fecha)) <= 2);
+    if (!s) continue;
+    const delBanco = cuentas.filter(c => c.banco === s.banco);
+    if (delBanco.length !== 1) continue;
+    usadas.add(s.id);
+    cambios.push({ ...m, desdeId: delBanco[0].id, salidaId: s.id });
+  }
+  return cambios;
+}

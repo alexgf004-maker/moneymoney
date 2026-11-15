@@ -5,7 +5,7 @@ import { CATEGORIAS, categoria } from '../domain/categorias.js';
 import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
 import { hoyISO, mesDe, mesAnterior, nombreMes, fechaCorta, fechaLarga, diasEntre } from '../domain/fechas.js';
-import { saldoCuenta, movimientosDeCuenta } from '../domain/cuentas.js';
+import { saldoCuenta, movimientosDeCuenta, despuesDelSaldo } from '../domain/cuentas.js';
 import { filaMovimiento } from './movimientos.js';
 
 const SUBS = {
@@ -269,12 +269,16 @@ function cuentasHTML() {
       <small>${esc(c.nombre)}</small><small>${esc(sub(c))}${c.cuenta4 ? ` ···${esc(c.cuenta4)}` : ''}</small><b>${s != null ? dinero(s) : 'Sin saldo'}</b></button>`).join('');
   const mes = mesDe(hoy);
   const d = movimientosDeCuenta(sel.c, movs(), mes);
-  const porDia = new Map();
-  for (const x of d.lista.slice(0, 60)) {
-    if (!porDia.has(x.m.fecha)) porDia.set(x.m.fecha, []);
-    porDia.get(x.m.fecha).push(x);
-  }
   const titulo = f => { const n = diasEntre(f, hoy); return n === 0 ? 'Hoy' : n === 1 ? 'Ayer' : fechaLarga(f).replace(/ de \d{4}$/, ''); };
+  const porDias = lista => {
+    const g = new Map();
+    for (const x of lista) { if (!g.has(x.m.fecha)) g.set(x.m.fecha, []); g.get(x.m.fecha).push(x); }
+    return [...g.entries()].map(([f, l]) => `<div class="dia-tit">${titulo(f)}</div><div class="card">${l.map(x => filaMovimiento(x.m, x.efecto)).join('')}</div>`).join('');
+  };
+  // Los movimientos de antes de poner el saldo ya estaban incluidos en él: se muestran aparte para que no confundan
+  const recientes = d.lista.slice(0, 60);
+  const cuentan = sel.c.saldoInicial != null ? recientes.filter(x => despuesDelSaldo(sel.c, x.m)) : recientes;
+  const incluidos = recientes.filter(x => !cuentan.includes(x));
   const mesTxt = nombreMes(mes).split(' ')[0];
   return `
     <div class="fichas" role="tablist" aria-label="Tus cuentas">${fichas}
@@ -291,8 +295,10 @@ function cuentasHTML() {
       <button class="btn sec" data-accion="modal" data-tipo="mover" data-pre="${sel.c.id}">${ic('repetir')} Mover dinero</button>
       <button class="btn sec" data-accion="modal" data-tipo="cuenta" data-id="${sel.c.id}">${ic('editar')} Ajustar saldo</button>
     </div>
-    ${porDia.size ? [...porDia.entries()].map(([f, l]) => `<div class="dia-tit">${titulo(f)}</div><div class="card">${l.map(x => filaMovimiento(x.m, x.efecto)).join('')}</div>`).join('')
-      : `<div class="card" style="margin-top:14px">${vacio('movimientos', 'Sin movimientos', 'Aquí aparecen tus ingresos, gastos, pagos y lo que muevas desde o hacia esta cuenta.')}</div>`}`;
+    ${cuentan.length ? porDias(cuentan) : `<div class="card" style="margin-top:14px">${vacio('movimientos', 'Sin movimientos nuevos', `Aquí aparecen tus ingresos, gastos, pagos y lo que muevas desde o hacia esta cuenta${sel.c.fechaSaldo ? ` después del ${fechaCorta(sel.c.fechaSaldo)}` : ''}.`)}</div>`}
+    ${incluidos.length ? `<div class="secc"><h3>Ya incluidos en tu saldo</h3></div>
+      <p class="mu" style="margin:-4px 4px 4px;font-size:12.5px">Pasaron antes de que pusieras el saldo del ${fechaCorta(sel.c.fechaSaldo)}, así que ese saldo ya los tenía. Si no es así, toca "Ajustar saldo".</p>
+      <div class="apagados">${porDias(incluidos)}</div>` : ''}`;
 }
 
 function reglasHTML() {

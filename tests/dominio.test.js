@@ -434,3 +434,14 @@ test('cuentas: mover dinero entre cuentas y pagos del mismo día después de pon
   assert.equal(d.entro, 0);
   assert.equal(saldoCuenta({ ...agricola, saldoMomento: undefined }, movs, '2026-11-16'), 1394.26); // cuentas viejas: el mismo día no cuenta
 });
+
+test('cuentas: un pago sin cuenta de origen se enlaza con el aviso de salida de tu banco', async () => {
+  const { vincularPagos } = await import('../js/domain/cuentas.js');
+  const cuentas = [{ id: 'a', banco: 'agricola', cuenta4: '1111' }, { id: 'b', banco: 'otro' }];
+  const pagos = [{ id: 'p', tipo: 'pago', monto: 129.11, fecha: '2026-11-15', origen: 'correo' }, { id: 'q', tipo: 'pago', monto: 10, fecha: '2026-11-15', origen: 'correo', origen4: '1111' }, { id: 'r', tipo: 'pago', monto: 77, fecha: '2026-11-15', origen: 'correo' }];
+  const salidas = [{ id: 's1', banco: 'agricola', monto: 129.11, fecha: '2026-11-15' }];
+  const c = vincularPagos(pagos, cuentas, salidas, []);
+  assert.deepEqual(c.map(x => [x.id, x.desdeId, x.salidaId || null]), [['p', 'a', 's1'], ['q', 'a', null]]);
+  // El mismo aviso no se usa dos veces
+  assert.equal(vincularPagos([{ ...pagos[0], id: 'p2' }], cuentas, salidas, [{ salidaId: 's1' }]).length, 0);
+});
