@@ -306,3 +306,18 @@ test('Cuscatlán: abono Transfer365 a la tarjeta con "Producto Origen" (la cuent
   assert.equal(r.origen4, '1234');
   assert.equal(r.fecha, '2026-11-15');
 });
+
+test('Agrícola: código de retiro de efectivo sin tarjeta sale de tu cuenta', () => {
+  const r = leerCorreo({
+    de: 'canalesdigitales@bancoagricola.com',
+    asunto: 'Banco Agrícola - Notificación de transacción en Banca Móvil',
+    cuerpo: `<p>Estimado cliente,</p><p>Por este medio te informamos que has generado un código de retiro de efectivo sin tarjeta para cajeros automáticos y/o corresponsales financieros.</p>
+      <ul><li>Datos de la operación:<ul><li>ID: <b>abc123</b></li><li>Fecha y hora: <b>10/11/2026 09:38:53</b></li><li>Monto: <b>$ 25.00</b></li></ul></li></ul>`,
+    fecha: '2026-11-10',
+  });
+  assert.equal(r.tipo, 'gasto');
+  assert.equal(r.monto, 25);
+  assert.equal(r.fecha, '2026-11-10');
+  assert.equal(r.desdeCuenta, true);
+  assert.equal(r.banco, 'agricola');
+});

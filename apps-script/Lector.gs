@@ -187,6 +187,15 @@ function lectorDetalles(texto) {
 }
 
 // Cuscatlán: pago de servicio con una tarjeta. Si lo pagado es otra tarjeta, es un pago a esa tarjeta.
+// Agrícola: "has generado un código de retiro de efectivo sin tarjeta" (dinero que sale de tu cuenta, p. ej. para
+// que alguien lo retire en un cajero). No trae tarjeta: la app lo anota en tu cuenta de ese banco.
+function lectorRetiroSinTarjeta(texto) {
+  if (!/retiro de efectivo sin tarjeta|retiro sin tarjeta/i.test(texto)) return null;
+  var monto = buscarMonto(texto);
+  if (!monto) return null;
+  return { tipo: 'gasto', monto: monto, ultimos4: null, comercio: 'Retiro sin tarjeta', fecha: fechaEtiquetada(texto, ['fecha y hora', 'fecha']), origen4: null, desdeCuenta: true, confianza: 'alta' };
+}
+
 function lectorServicio(texto) {
   if (!/pago de servicio/i.test(texto) || !/servicio pagado/i.test(texto)) return null;
   var monto = buscarMonto(texto);
@@ -271,7 +280,7 @@ function analizarCorreo(correo) {
     datos = lectorEstado(texto, correo.asunto);
     if (!datos.fechaCorte || datos.contado === null) return nada('estado-incompleto');
   } else {
-    datos = lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
+    datos = lectorRetiroSinTarjeta(texto) || lectorServicio(texto) || lectorDetalles(texto) || (banco && banco.leer && banco.leer(texto)) || lectorTransaccion(texto);
     if (!datos) {
       // Transferencias, abonos y pagos desde la cuenta de banco: se ignoran a propósito (no son de tarjeta)
       if (/transferencia|env[ií]o de dinero|pago a terceros|abono a (tu|su) cuenta|dep[oó]sito|cuenta de ahorro|cuenta corriente|pago de servicio/i.test(texto)) return nada('transferencia');
@@ -280,7 +289,7 @@ function analizarCorreo(correo) {
       return nada(PALABRAS_TRANSACCION.test(texto) && tieneDatos ? 'sin-movimiento' : 'aviso');
     }
     // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otro aviso
-    if (!datos.ultimos4) {
+    if (!datos.ultimos4 && !datos.desdeCuenta) {
       // Transfer365 o transferencia desde tu cuenta: el pago a la tarjeta lo registra el aviso del banco que lo recibe
       if (/transfer365|transferencia|cuenta origen|desde tu cuenta|desde su cuenta/i.test(texto)) return nada('transferencia', datos.monto);
       return nada('sin-tarjeta', datos.monto);

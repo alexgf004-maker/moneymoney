@@ -30,6 +30,16 @@ export function procesarEstado(e) {
 
 // cuentas: para saber desde dónde salió un pago (cuenta por sus últimos 4, o una tarjeta si se pagó con otra tarjeta)
 export function procesarEntrante(entrante, { tarjetas, reglas, cuentas = [] }) {
+  // Sale directo de tu cuenta de banco (retiro sin tarjeta): va a tu única cuenta de ese banco
+  if (entrante.desdeCuenta) {
+    const delBanco = cuentas.filter(c => c.tipo !== 'efectivo' && c.banco === entrante.banco);
+    const cuenta = delBanco.length === 1 ? delBanco[0] : null;
+    return {
+      id: `gm_${entrante.id}`, fecha: entrante.fecha, monto: r2(entrante.monto), tipo: 'gasto', cuentaId: cuenta?.id || null,
+      categoriaId: 'efectivo', comercio: entrante.comercio || 'Retiro sin tarjeta', desdeId: null, origen: 'correo', banco: entrante.banco,
+      ultimos4: null, origen4: null, debito: false, revisar: !cuenta,
+    };
+  }
   const tarjeta = buscarTarjeta(entrante, tarjetas);
   const desde = entrante.origen4
     ? cuentas.find(c => c.cuenta4 === entrante.origen4) || tarjetas.find(t => t.ultimos4 === entrante.origen4 && t.id !== tarjeta?.id) || null

@@ -445,3 +445,12 @@ test('cuentas: un pago sin cuenta de origen se enlaza con el aviso de salida de 
   // El mismo aviso no se usa dos veces
   assert.equal(vincularPagos([{ ...pagos[0], id: 'p2' }], cuentas, salidas, [{ salidaId: 's1' }]).length, 0);
 });
+
+test('retiro sin tarjeta: se anota como salida de tu cuenta de ese banco', async () => {
+  const { procesarEntrante } = await import('../js/domain/entrantes.js');
+  const cuentas = [{ id: 'efectivo', tipo: 'efectivo' }, { id: 'a', tipo: 'banco', banco: 'agricola' }];
+  const m = procesarEntrante({ id: 'x', tipo: 'gasto', monto: 25, fecha: '2026-11-10', banco: 'agricola', desdeCuenta: true, comercio: 'Retiro sin tarjeta' }, { tarjetas: [], reglas: [], cuentas });
+  assert.equal(m.cuentaId, 'a');
+  assert.equal(m.categoriaId, 'efectivo');
+  assert.equal(m.revisar, false);
+});
