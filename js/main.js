@@ -51,8 +51,21 @@ function generarFijos() {
   return nuevos.length;
 }
 
+// Pagos que llegaron antes de registrar la cuenta de donde salieron: se enlazan cuando ya existe (por sus últimos 4)
+function vincularOrigenes() {
+  const cuentas = store.lista('cuentas').filter(c => c.cuenta4);
+  if (!cuentas.length) return;
+  const cambios = store.lista('movimientos')
+    .filter(m => m.tipo === 'pago' && m.origen4 && !m.desdeId)
+    .map(m => ({ m, c: cuentas.find(c => c.cuenta4 === m.origen4) }))
+    .filter(x => x.c)
+    .map(x => ({ ...x.m, desdeId: x.c.id }));
+  if (cambios.length) store.guardarVarios('movimientos', cambios, { silencioso: true });
+}
+
 function procesos() {
   const n = procesarEntrantes();
+  vincularOrigenes();
   generarFijos();
   if (n) aviso(`${n} movimiento${n > 1 ? 's' : ''} nuevo${n > 1 ? 's' : ''} desde tus correos`);
 }
@@ -385,6 +398,7 @@ const FORMULARIOS = {
     const saldoHoy = num(f.saldoHoy);
     if (saldoHoy != null && saldoHoy !== saldoCuenta(previo, store.lista('movimientos'), hoyISO())) Object.assign(c, { saldoInicial: saldoHoy, fechaSaldo: hoyISO() });
     store.guardar('cuentas', c);
+    vincularOrigenes();
   },
 
   compartir(f, form) {
