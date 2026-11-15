@@ -21,3 +21,15 @@ function diagnosticoAvisos() {
     Logger.log('3.' + (i + 1) + ') ' + (conCabecera ? 'Con' : 'Sin') + ' proyecto de cuota: ' + res.getResponseCode() + ' ' + res.getContentText().replace(/\s+/g, ' ').slice(0, 400));
   });
 }
+
+// Muestra en el registro cómo lee el script un correo: el texto que ve y lo que saca de él. No cambia nada.
+// Cambia ASUNTO por parte del asunto del correo que quieras revisar y ejecuta verCorreo.
+var ASUNTO = 'Estado de Cuenta Digital BAC';
+function verCorreo() {
+  var hilos = GmailApp.search('subject:"' + ASUNTO + '"', 0, 1);
+  if (!hilos.length) { Logger.log('No encontré un correo con ese asunto'); return; }
+  var msg = hilos[0].getMessages().pop();
+  var correo = { de: msg.getFrom(), asunto: msg.getSubject(), cuerpo: msg.getBody(), fecha: fechaISO_(msg.getDate()) };
+  Logger.log('TEXTO:\n' + textoPlano(correo.cuerpo).slice(0, 3000));
+  Logger.log('RESULTADO: ' + JSON.stringify(analizarCorreo(correo)));
+}

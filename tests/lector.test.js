@@ -249,3 +249,29 @@ test('el análisis dice qué pasó con cada correo del banco', () => {
   assert.equal(a({ de: 'alertas@bancoagricola.com', asunto: 'Notificación', cuerpo: 'Se realizó un cargo de $20.00' }), 'sin-tarjeta');
   assert.equal(a({ de: 'amigo@gmail.com', asunto: 'Hola', cuerpo: 'nos vemos' }), 'ajeno');
 });
+
+test('BAC: estado de cuenta con etiquetas en una fila y valores en la de abajo, y acentos en código', () => {
+  const r = leerCorreo({
+    de: 'BAC Credomatic <estadosdecuenta@baccredomatic.com>',
+    asunto: 'Estado de Cuenta Digital BAC Credomatic',
+    cuerpo: `<p>Por este medio te enviamos el estado de cuenta de tu tarjeta.</p>
+      <table><tr><td>Tipo de cuenta</td></tr><tr><td>4568-46XX-XXXX-8888</td></tr></table>
+      <table><tr><td>Fecha de corte</td><td></td><td>Fecha de vencimiento</td></tr><tr><td>09-11-2026</td><td></td><td>30-11-2026</td></tr></table>
+      <table><tr><td>Pago m&#237;nimo d&#243;lares</td><td>Pago de contado d&#243;lares</td></tr><tr><td>&#36; 59.00</td><td>&#36; 101.35</td></tr></table>`,
+    fecha: '2026-11-10',
+  });
+  assert.equal(r.tipo, 'estado');
+  assert.equal(r.ultimos4, '8888');
+  assert.equal(r.fechaCorte, '2026-11-09');
+  assert.equal(r.fechaPago, '2026-11-30');
+  assert.equal(r.minimo, 59);
+  assert.equal(r.contado, 101.35);
+});
+
+test('publicidad sin montos ni tarjeta no queda "por revisar"; Transfer365 de tu cuenta es transferencia', () => {
+  const { analizarCorreo } = ctx.module.exports;
+  const promo = analizarCorreo({ de: 'promos@bancocuscatlan.com', asunto: '15% OFF en videojuegos', cuerpo: 'Paga con tu tarjeta de crédito Cuscatlán y obtén 15% de descuento en tu compra.', fecha: '2026-11-11' });
+  assert.equal(promo.resultado, 'aviso');
+  const salida = analizarCorreo({ de: 'notificaciones@bancoagricola.com', asunto: 'Transfer365 - Notificación de transferencia', cuerpo: 'Banco Agrícola. Transfer365. Has realizado una transferencia. Monto: $129.11. Banco destino: Banco Cuscatlán', fecha: '2026-11-15' });
+  assert.equal(salida.resultado, 'transferencia');
+});

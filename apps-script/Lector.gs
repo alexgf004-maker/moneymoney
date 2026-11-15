@@ -51,6 +51,8 @@ function textoPlano(html) {
     .replace(/<(br|\/p|\/div|\/tr|\/li|\/h\d|\/table)[^>]*>/gi, '\n')
     .replace(/<\/t[dh]>/gi, ' | ')
     .replace(/<[^>]+>/g, ' ')
+    .replace(/&#(\d+);/g, function (_, n) { return String.fromCharCode(+n); })
+    .replace(/&#x([0-9a-f]+);/gi, function (_, n) { return String.fromCharCode(parseInt(n, 16)); })
     .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&#36;/g, '$').replace(/&iacute;/gi, 'í').replace(/&oacute;/gi, 'ó')
     .replace(/&aacute;/gi, 'á').replace(/&eacute;/gi, 'é').replace(/&uacute;/gi, 'ú').replace(/&ntilde;/gi, 'ñ').replace(/&[a-z#0-9]+;/gi, ' ')
     .replace(/[ \t]+/g, ' ')
@@ -216,7 +218,31 @@ function esEstadoDeCuenta(texto) {
   return /estado de cuenta/i.test(texto) && /pago de contado/i.test(texto) && /fecha de corte/i.test(texto);
 }
 
+// Etiquetas en una fila y valores en la de abajo ("Fecha de corte | Fecha de vencimiento / 09-11-2026 | 30-11-2026"):
+// devuelve los dos valores en el orden de las etiquetas, o null
+function parAgrupado(texto, etiquetaA, etiquetaB, valor) {
+  var m = texto.match(new RegExp(etiquetaA + '[^\\d$]{0,60}?' + etiquetaB + '[^\\d$]{0,40}?' + valor + '[^\\d$]{0,20}?' + valor, 'i'));
+  return m ? [m[1], m[2]] : null;
+}
+
+// Con centavos: así una fecha (04/12/2026) nunca se toma por un monto
+var MONTO_ESTADO = '(?:US\\s?\\$|\\$)?\\s?(\\d[\\d,]*[.,]\\d{2})(?![\\d\\/-])';
+var ETIQUETAS_PAGO = '(?:[uú]ltima fecha de pago|fecha de vencimiento|fecha l[ií]mite[a-zñáéíóú ]{0,30})';
+
+// Primero se busca el caso de etiquetas agrupadas (es más específico): con la lectura directa, "Fecha de vencimiento"
+// tomaría la fecha de corte que viene justo debajo.
 function lectorEstado(texto, asunto) {
+  var e = lectorEstadoDirecto(texto, asunto);
+  var f = parAgrupado(texto, 'fecha de corte', ETIQUETAS_PAGO, FECHA);
+  if (f) { e.fechaCorte = leerFecha(f[0]); e.fechaPago = leerFecha(f[1]); }
+  var a = parAgrupado(texto, 'pago m[ií]nimo', 'pago de contado', MONTO_ESTADO);
+  var b = parAgrupado(texto, 'pago de contado', 'pago m[ií]nimo', MONTO_ESTADO);
+  if (a) { e.minimo = leerNumero(a[0]); e.contado = leerNumero(a[1]); }
+  else if (b) { e.contado = leerNumero(b[0]); e.minimo = leerNumero(b[1]); }
+  return e;
+}
+
+function lectorEstadoDirecto(texto, asunto) {
   var nombre = (texto.match(/[Tt]arjeta de [Cc]r[eé]dito\s+([A-Z][A-Z0-9 ]{3,40}?)\s*\./) || String(asunto || '').match(/[Ee]stado de [Cc]uenta\s+([A-Z][A-Z0-9 ]{3,30})$/) || [])[1] || null;
   return {
     tipo: 'estado',
@@ -248,10 +274,16 @@ function analizarCorreo(correo) {
     if (!datos) {
       // Transferencias, abonos y pagos desde la cuenta de banco: se ignoran a propósito (no son de tarjeta)
       if (/transferencia|env[ií]o de dinero|pago a terceros|abono a (tu|su) cuenta|dep[oó]sito|cuenta de ahorro|cuenta corriente|pago de servicio/i.test(texto)) return nada('transferencia');
-      return nada(PALABRAS_TRANSACCION.test(texto) ? 'sin-movimiento' : 'aviso');
+      // Sin monto y sin dígitos de tarjeta es publicidad o un aviso (p. ej. "15% OFF en ... con tu tarjeta")
+      var tieneDatos = /(?:US\s?\$|USD|\$)\s?\d/.test(texto) || buscarUltimos4(texto);
+      return nada(PALABRAS_TRANSACCION.test(texto) && tieneDatos ? 'sin-movimiento' : 'aviso');
     }
     // Un movimiento real siempre dice con qué tarjeta: sin dígitos es publicidad u otro aviso
-    if (!datos.ultimos4) return nada('sin-tarjeta', datos.monto);
+    if (!datos.ultimos4) {
+      // Transfer365 o transferencia desde tu cuenta: el pago a la tarjeta lo registra el aviso del banco que lo recibe
+      if (/transfer365|transferencia|cuenta origen|desde tu cuenta|desde su cuenta/i.test(texto)) return nada('transferencia', datos.monto);
+      return nada('sin-tarjeta', datos.monto);
+    }
     // Sin banco reconocido solo se acepta una alerta clara de tarjeta (con dígitos y monto)
     if (!banco && !(/tarjeta/i.test(texto) && datos.confianza === 'alta')) return nada('ajeno');
     datos.fecha = datos.fecha || correo.fecha;
