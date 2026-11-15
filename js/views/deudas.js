@@ -181,5 +181,6 @@ function planHTML(plan) {
       <div class="secc"><h3>En este orden</h3></div>
       <div class="card"><ol class="pasos">${c.avalancha.liquidaciones.map(l => `<li><span class="rt"><b>${esc(l.nombre)}</b><small>Liquidada en el mes ${l.mes}</small></span></li>`).join('')}</ol></div>
       <small class="mu" style="margin:10px 4px">Cada mes paga el mínimo de todas y lo que sobre a la primera de la lista; al liquidarla, pasa a la siguiente. Usa los saldos y tasas de hoy, sin compras nuevas.</small>`}
+    <button class="aviso-fila" data-accion="ir" data-vista="mas" data-sub="compromisos">${ic('calendario')}<span class="rt"><b>Cuándo termino de pagar cada cosa</b><small>Cuotas, préstamo y suscripciones, y cuánto se te libera cada mes</small></span><span class="mu">${ic('chevron-right')}</span></button>
   `;
 }

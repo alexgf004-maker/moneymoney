@@ -243,3 +243,23 @@ test('inicio: cuánto puedo gastar con saldos y salario', async ({ page }) => {
   await expect(g).toContainText(/Te alcanza|No te alcanza/);
   expect(errores).toEqual([]);
 });
+
+test('hábitos: gastos hormiga, suscripciones y cuándo termino de pagar', async ({ page }) => {
+  const errores = await conEjemplo(page);
+  // Desde el Inicio
+  await page.getByRole('button', { name: /Gastos hormiga:/ }).click();
+  await expect(page.locator('#vista')).toContainText('Menos de $10.00');
+  await expect(page.locator('#vista')).toContainText('UBER');
+  await nav(page, 'Más');
+  await page.getByRole('button', { name: /Suscripciones/ }).click();
+  await expect(page.locator('#vista')).toContainText('NETFLIX');
+  await page.getByRole('button', { name: 'Cancelarla' }).first().click();
+  await expect(page.locator('#vista')).toContainText('Para cancelar');
+  await expect(page.locator('#vista')).toContainText('si cancelas');
+  await page.getByRole('button', { name: 'Volver' }).click();
+  await page.getByRole('button', { name: /Cuándo termino de pagar/ }).click();
+  await expect(page.locator('#vista')).toContainText('Pagas cada mes');
+  await expect(page.locator('#vista')).toContainText('Préstamo personal');
+  expect(await page.locator('body').innerText()).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+  expect(errores).toEqual([]);
+});

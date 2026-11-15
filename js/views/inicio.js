@@ -4,7 +4,7 @@
 
 import { ui, esc, ic, tile, lin, top, sec, montoGrande } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas, disponibleParaGastar } from '../consultas.js';
+import { movs, tarjetas, prestamos, recurrentes, resumenDeudas, estadosDe, estadoDe, tarjetasDetectadas, disponibleParaGastar, hormigaDelMes, suscripcionesActuales } from '../consultas.js';
 import { totalGastado, porCategoria, gastadoMismoDia, estadoPresupuestos, proximosPagos } from '../domain/resumen.js';
 import { categoria } from '../domain/categorias.js';
 import { dinero, sumar } from '../domain/dinero.js';
@@ -208,7 +208,19 @@ function tuMes(m, hoy) {
         return `<button class="cat" data-accion="ver-categoria" data-id="${x.categoriaId}">${ic(c.icono, `style="color:${c.color}"`)}<span><span class="cat-n">${esc(c.nombre)}${a ? ` <span class="chip ${a.nivel === 'excedido' ? 'bad' : 'warn'}">${a.nivel === 'excedido' ? 'Te pasaste' : 'Cerca del límite'}</span>` : ''}</span>${lin(x.total / maxCat, '', c.color)}</span><b>${dinero(x.total)}</b></button>`;
       }).join('') : `<small class="mu" style="margin-top:8px">Todavía no hay gastos este mes.</small>`}
       ${totalPres ? '' : `<button class="link" style="margin-top:8px" data-accion="ir" data-vista="mas" data-sub="presupuesto">${ic('objetivo')} Ponle un presupuesto a tu mes</button>`}
-    </div>`;
+    </div>
+    ${habitos(hoy)}`;
+}
+
+// Hormiga y suscripciones: dos filas que llevan a su detalle
+function habitos(hoy) {
+  const h = hormigaDelMes(mesDe(hoy), hoy);
+  const s = suscripcionesActuales(hoy);
+  if (!h.veces && !s.lista.length) return '';
+  return `<div class="card" style="margin-top:12px">
+    ${h.veces ? `<button class="row" data-accion="ir" data-vista="mas" data-sub="hormiga">${tile('cat-comida', 'oro')}<span class="rt"><b>Gastos hormiga: ${dinero(h.total)}</b><small>${h.veces} compras de menos de ${dinero(h.umbral)} · a este ritmo ${dinero(h.alAnio)} al año</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
+    ${s.lista.length ? `<button class="row" data-accion="ir" data-vista="mas" data-sub="suscripciones">${tile('cat-suscripciones', 'oro')}<span class="rt"><b>Suscripciones: ${dinero(s.alMes)} al mes</b><small>${s.lista.length} en total · ${dinero(s.alAnio)} al año</small></span><span class="mu">${ic('chevron-right')}</span></button>` : ''}
+  </div>`;
 }
 
 // ---------- Primera vez ----------

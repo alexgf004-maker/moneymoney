@@ -1,14 +1,17 @@
 import { ui, esc, ic, tile, top, vacio, lin, entrada, montoGrande, temaGuardado } from '../ui.js';
 import { lista, ajustes } from '../store.js';
-import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco } from '../consultas.js';
+import { movs, cuentas, reglas, recurrentes, nombreCuenta, nombreBanco, hormigaDelMes, suscripcionesActuales, compromisos } from '../consultas.js';
 import { CATEGORIAS, categoria } from '../domain/categorias.js';
 import { estadoPresupuestos, proximaFechaRecurrente, totalGastado } from '../domain/resumen.js';
 import { dinero, sumar } from '../domain/dinero.js';
-import { hoyISO, mesDe, nombreMes, fechaCorta } from '../domain/fechas.js';
+import { hoyISO, mesDe, mesAnterior, nombreMes, fechaCorta } from '../domain/fechas.js';
 import { saldoCuenta } from '../domain/cuentas.js';
 
 const SUBS = {
   presupuesto: ['Presupuesto', presupuesto],
+  hormiga: ['Gastos hormiga', hormiga],
+  suscripciones: ['Suscripciones', suscripcionesHTML],
+  compromisos: ['Cuándo termino de pagar', compromisosHTML],
   fijos: ['Pagos fijos', fijos],
   cuentas: ['Cuentas y efectivo', cuentasHTML],
   reglas: ['Reglas de categorías', reglasHTML],
@@ -30,6 +33,9 @@ export function vistaMas() {
     <div class="grupo-t">Tu dinero</div>
     <div class="card">
       ${fila('presupuesto', 'objetivo', 'Presupuesto', 'Límites por categoría y alertas')}
+      ${fila('hormiga', 'cat-comida', 'Gastos hormiga', 'Compras pequeñas que suman mucho')}
+      ${fila('suscripciones', 'cat-suscripciones', 'Suscripciones', 'Cuánto pagas al mes y al año')}
+      ${fila('compromisos', 'calendario', 'Cuándo termino de pagar', 'Tus pagos de cada mes y cuándo se acaban')}
       ${fila('fijos', 'repetir', 'Pagos fijos', `${recurrentes().length || 'Ninguno'} · se anotan solos cada mes`)}
       ${fila('cuentas', 'cartera', 'Cuentas y efectivo', `${cuentas().length} cuenta${cuentas().length > 1 ? 's' : ''}`)}
       ${fila('reglas', 'regla', 'Reglas de categorías', `${reglas().length} propia${reglas().length === 1 ? '' : 's'} · más los comercios comunes`)}
@@ -46,6 +52,73 @@ export function vistaMas() {
       ${fila('respaldo', 'base', 'Respaldo', 'Descargar o restaurar tus datos')}
     </div>
   `;
+}
+
+// ---------- Gastos hormiga ----------
+
+function hormiga() {
+  const hoy = hoyISO();
+  const mes = mesDe(hoy);
+  const h = hormigaDelMes(mes, hoy);
+  const nombreAnt = nombreMes(mesAnterior(mes)).split(' ')[0];
+  return `
+    <section class="pc">
+      <div class="pc-top"><span class="pc-lbl">Menos de ${dinero(h.umbral)} · ${nombreMes(mes).split(' ')[0]}</span><span class="badge">${h.veces} compra${h.veces === 1 ? '' : 's'}</span></div>
+      <div class="big">${montoGrande(dinero(h.total))}</div>
+      <div class="pc-sub">A este ritmo: ${dinero(h.proyeccionMes)} este mes · ${dinero(h.alAnio)} en un año</div>
+      ${h.anterior ? `<div class="pc-div"></div><div class="mini"><div>En ${nombreAnt}<b>${dinero(h.anterior)}</b></div><div>Promedio por compra<b>${h.veces ? dinero(h.total / h.veces) : '—'}</b></div></div>` : ''}
+    </section>
+    <p class="mu" style="margin:14px 4px">Cada una parece poca cosa, pero juntas suman. Los comercios donde más se te van:</p>
+    <div class="card">${h.porComercio.length ? h.porComercio.slice(0, 15).map(g => {
+      const c = categoria(g.categoriaId);
+      return `<div class="row">${tile(c.icono, '', `color:${c.color}`)}<span class="rt"><b>${esc(g.nombre)}</b><small>${g.veces} ${g.veces === 1 ? 'vez' : 'veces'} · promedio ${dinero(g.total / g.veces)}</small></span><span class="amt">${dinero(g.total)}</span></div>`;
+    }).join('') : vacio('check', 'Sin gastos hormiga este mes')}</div>
+    <div class="card pad" style="margin-top:12px"><label class="campo" style="margin:0"><span>Cuenta como hormiga una compra de menos de</span>
+      <div class="sim" style="margin:0"><span class="mu">$</span>${entrada('', h.umbral, { tipo: 'number', min: 1, paso: 1, extra: 'data-ajuste-num="umbralHormiga" aria-label="Monto máximo de un gasto hormiga"' })}</div></label></div>`;
+}
+
+// ---------- Suscripciones ----------
+
+function suscripcionesHTML() {
+  const s = suscripcionesActuales();
+  return `
+    <section class="pc">
+      <div class="pc-top"><span class="pc-lbl">Tus suscripciones</span>${s.paraCancelar ? `<span class="badge">${ic('check')} Ahorras ${dinero(s.paraCancelar)}/mes si cancelas</span>` : ''}</div>
+      <div class="big">${montoGrande(dinero(s.alMes))}<small style="font-size:16px"> al mes</small></div>
+      <div class="pc-sub">${dinero(s.alAnio)} al año</div>
+    </section>
+    <p class="mu" style="margin:14px 4px">Cobros que se repiten cada mes con un monto parecido, o servicios conocidos (Netflix, Spotify, apps…). Márcalas para cancelar o quítalas si no son suscripciones.</p>
+    <div class="card">${s.lista.length ? s.lista.map(x => `<div class="row ${x.cancelar ? 'apagado' : ''}">
+      ${tile('cat-suscripciones', x.cancelar ? '' : 'oro')}
+      <span class="rt"><b>${esc(x.nombre)}</b><small>${x.cancelar ? '<span class="chip warn">Para cancelar</span>' : ''}${x.ultimoCobro ? `Último cobro ${fechaCorta(x.ultimoCobro)}` : 'Pago fijo'}${x.cuentaId ? ` · ${esc(nombreCuenta(x.cuentaId))}` : ''} · ${dinero(x.alAnio)} al año</small>
+        <span style="display:flex;gap:16px;margin-top:4px;white-space:nowrap">
+          <button class="link" style="font-size:12.5px" data-accion="sus-cancelar" data-clave="${esc(x.clave)}">${x.cancelar ? 'La sigo pagando' : 'Cancelarla'}</button>
+          <button class="link" style="font-size:12.5px;color:var(--mu)" data-accion="sus-ignorar" data-clave="${esc(x.clave)}">No es suscripción</button>
+        </span></span>
+      <span class="amt">${dinero(x.monto)}<small>al mes</small></span>
+    </div>`).join('') : vacio('cat-suscripciones', 'Todavía no detecto suscripciones', 'Aparecen cuando un cobro se repite dos meses, o puedes agregarlas como pago fijo con categoría Suscripciones.')}</div>`;
+}
+
+// ---------- Compromisos: cuándo termino de pagar ----------
+
+function compromisosHTML() {
+  const hoy = hoyISO();
+  const c = compromisos(hoy);
+  const icono = { cuotas: 'calendario', prestamo: 'banco', fijo: 'repetir', suscripcion: 'cat-suscripciones' };
+  const nombreLargo = mes => nombreMes(mes).replace(/^\w/, l => l.toUpperCase());
+  return `
+    <section class="pc">
+      <div class="pc-top"><span class="pc-lbl">Pagas cada mes</span>${c.hitos.length ? `<span class="badge">${ic('baja')} Baja a ${dinero(c.hitos[c.hitos.length - 1].quedaAlMes)}</span>` : ''}</div>
+      <div class="big">${montoGrande(dinero(c.mensualHoy))}</div>
+      <div class="pc-sub">En cuotas, préstamos, pagos fijos y suscripciones${c.sinFin ? ` · ${dinero(c.sinFin)} no tienen fecha de fin` : ''}</div>
+    </section>
+    ${c.hitos.length ? `<div class="secc"><h3>Cuándo se te libera dinero</h3></div>
+    <div class="card"><ol class="pasos">${c.hitos.map(h => `<li><span class="rt"><b>${nombreLargo(h.mes)}: +${dinero(h.libera)} al mes</b>
+      <small style="white-space:normal">Ya no pagas ${h.termina.map(t => esc(t.nombre)).join(', ')} · desde ahí pagas ${dinero(h.quedaAlMes)} al mes</small></span></li>`).join('')}</ol></div>` : ''}
+    <div class="secc"><h3>Todo lo que pagas cada mes</h3></div>
+    <div class="card">${c.items.length ? c.items.map(i => `<div class="row">${tile(icono[i.tipo] || 'repetir')}
+      <span class="rt"><b>${esc(i.nombre)}</b><small>${esc(i.detalle)} · ${i.fin ? `termina en ${nombreMes(i.fin.slice(0, 7))}` : 'sin fecha de fin'}</small></span>
+      <span class="amt">${dinero(i.mensual)}<small>al mes</small></span></div>`).join('') : vacio('calendario', 'Sin pagos mensuales registrados')}</div>`;
 }
 
 // Qué pasó con cada correo de banco que revisó el script de Gmail

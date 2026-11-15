@@ -1,11 +1,13 @@
 // Une los datos guardados con las reglas de domain/ para lo que piden las pantallas.
 
-import { lista, obtener } from './store.js';
+import { lista, obtener, ajustes } from './store.js';
 import { estadoTarjeta } from './domain/tarjetas.js';
 import { estadoPrestamo } from './domain/prestamo.js';
 import { r2, sumar } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { cuantoPuedoGastar } from './domain/cuentas.js';
+import { gastosHormiga, suscripciones, lineaDeTiempo } from './domain/habitos.js';
+import { normalizar } from './domain/categorias.js';
 
 export const movs = () => lista('movimientos');
 export const tarjetas = () => lista('tarjetas').sort((a, b) => (a.banco + a.nombre).localeCompare(b.banco + b.nombre));
@@ -115,4 +117,33 @@ export function deudasParaPlan(hoy = hoyISO()) {
 // ¿Cuánto puedo gastar hasta el próximo salario? (domain/cuentas.js)
 export function disponibleParaGastar(hoy = hoyISO()) {
   return cuantoPuedoGastar({ cuentas: cuentas(), movs: movs(), tarjetas: tarjetas(), prestamos: prestamos(), recurrentes: recurrentes(), estadosDe }, hoy);
+}
+
+// ---------- Hábitos (domain/habitos.js) ----------
+
+export const hormigaDelMes = (mes, hoy = hoyISO()) => gastosHormiga(movs(), mes, hoy, ajustes().umbralHormiga || 10);
+
+export const suscripcionesActuales = (hoy = hoyISO()) => suscripciones(movs(), recurrentes(), hoy, ajustes().suscripciones || {});
+
+// Todo lo que pagas cada mes, con la fecha en que termina (null = sin fin)
+export function compromisos(hoy = hoyISO()) {
+  const items = [];
+  for (const t of tarjetas()) {
+    for (const p of estadoTarjeta(t, movs(), hoy, estadosDe(t)).planes.filter(x => x.activo)) {
+      items.push({ nombre: p.nombre, detalle: `${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · ${t.nombre} · cuota ${p.cobradasHoy} de ${p.total}`, tipo: 'cuotas', mensual: p.cuota, fin: p.fin });
+    }
+  }
+  for (const p of prestamos()) {
+    const e = estadoPrestamo(p, movs(), hoy);
+    if (e.saldo > 0) items.push({ nombre: p.nombre, detalle: `Préstamo · ${e.cuotasPagadas} de ${e.cuotasTotales} cuotas`, tipo: 'prestamo', mensual: e.cuota, fin: e.fechaFin });
+  }
+  const idsPrestamos = new Set(prestamos().map(p => p.id));
+  for (const r of recurrentes().filter(x => x.activo !== false && x.tipo !== 'ingreso' && !idsPrestamos.has(x.cuentaId))) {
+    items.push({ nombre: r.nombre, detalle: 'Pago fijo', tipo: 'fijo', mensual: r.monto, fin: r.hasta || null });
+  }
+  for (const s of suscripcionesActuales(hoy).lista.filter(x => x.origen === 'detectada' && !x.cancelar)) {
+    if (items.some(i => normalizar(i.nombre).includes(s.clave))) continue;
+    items.push({ nombre: s.nombre, detalle: 'Suscripción', tipo: 'suscripcion', mensual: s.monto, fin: null });
+  }
+  return lineaDeTiempo(items, hoy);
 }

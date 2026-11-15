@@ -96,6 +96,17 @@ const ACCIONES = {
     aviso(`Ajustado: se agregó un ${c.diferencia > 0 ? 'cargo' : 'crédito'} de $${Math.abs(c.diferencia).toFixed(2)}`);
   },
   'anotar-revision': d => abrir('movimiento', { revision: d.id }),
+  // Suscripciones: marcar para cancelar (o desmarcar) y quitar las que no son suscripciones
+  'sus-cancelar': d => {
+    const marcas = { ...(store.ajustes().suscripciones || {}) };
+    marcas[d.clave] = { ...(marcas[d.clave] || {}), cancelar: !marcas[d.clave]?.cancelar };
+    store.guardarAjustes({ suscripciones: marcas });
+  },
+  'sus-ignorar': d => {
+    const marcas = { ...(store.ajustes().suscripciones || {}), [d.clave]: { ignorar: true } };
+    store.guardarAjustes({ suscripciones: marcas });
+    aviso('Quitada de suscripciones');
+  },
   'borrar-plan': d => {
     const t = store.obtener('tarjetas', d.tarjeta);
     if (!t || !confirm('¿Borrar esta compra en cuotas?')) return;
@@ -181,6 +192,9 @@ document.addEventListener('change', ev => {
   const d = el.dataset;
   if (d.ajuste) {
     store.guardarAjustes({ [d.ajuste]: el.value.trim() });
+  } else if (d.ajusteNum) {
+    const v = leerMonto(el.value);
+    if (v > 0) store.guardarAjustes({ [d.ajusteNum]: v });
   } else if (d.sim) {
     ui.simExtra[d.sim] = Math.max(0, leerMonto(el.value));
     renderVista();

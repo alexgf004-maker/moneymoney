@@ -317,3 +317,47 @@ test('lo que el próximo salario no alcanza a cubrir se reserva desde ya', async
   assert.equal(r.reservaSiguiente, 300); // el salario de 800 no alcanza: faltan 300
   assert.equal(r.libre, 600);
 });
+
+test('gastos hormiga: compras de menos de $10 y dónde se van', async () => {
+  const { gastosHormiga } = await import('../js/domain/habitos.js');
+  const g = (comercio, monto, fecha) => ({ tipo: 'gasto', comercio, monto, fecha, categoriaId: 'comida' });
+  const movs = [
+    g('STARBUCKS ESCALON', 4.5, '2026-11-02'), g('STARBUCKS ESCALON', 5, '2026-11-05'), g('STARBUCKS MULTIPLAZA', 4.5, '2026-11-09'),
+    g('UBER *TRIP', 3.2, '2026-11-03'), g('WALMART', 88, '2026-11-04'), g('STARBUCKS', 4, '2026-10-20'),
+    { ...g('TV', 5, '2026-11-06'), plan: 'p' },
+  ];
+  const h = gastosHormiga(movs, '2026-11', '2026-11-10');
+  assert.equal(h.veces, 4);
+  assert.equal(h.total, 17.2);
+  assert.equal(h.anterior, 4);
+  assert.equal(h.porComercio[0].clave, 'STARBUCKS ESCALON');
+  assert.equal(h.proyeccionMes, 51.6); // 17.20 en 10 días -> 30 días
+});
+
+test('suscripciones: se detectan por repetición mensual o por ser un servicio conocido', async () => {
+  const { suscripciones } = await import('../js/domain/habitos.js');
+  const g = (comercio, monto, fecha, categoriaId = 'otros') => ({ tipo: 'gasto', comercio, monto, fecha, categoriaId, cuentaId: 't1' });
+  const movs = [
+    g('APP GIMNASIO', 25, '2026-09-10'), g('APP GIMNASIO', 25, '2026-10-10'), g('APP GIMNASIO', 25, '2026-11-10'),
+    g('NETFLIX.COM', 9.99, '2026-11-08', 'suscripciones'),
+    g('SUPER SELECTOS', 60, '2026-10-02'), g('SUPER SELECTOS', 15, '2026-11-02'), // montos distintos: no es suscripción
+    g('STARBUCKS', 5, '2026-10-01'), g('STARBUCKS', 5, '2026-10-03'), g('STARBUCKS', 5, '2026-11-01'), // varias al mes: no
+  ];
+  const s = suscripciones(movs, [], '2026-11-14', { 'NETFLIX.COM': { cancelar: true } });
+  assert.deepEqual(s.lista.map(x => x.clave).sort(), ['APP GIMNASIO', 'NETFLIX.COM']);
+  assert.equal(s.alMes, 25); // Netflix está marcada para cancelar
+  assert.equal(s.paraCancelar, 9.99);
+  assert.equal(s.alAnio, 300);
+});
+
+test('línea de tiempo: cuánto se libera cada mes al terminar los compromisos', async () => {
+  const { lineaDeTiempo } = await import('../js/domain/habitos.js');
+  const t = lineaDeTiempo([
+    { nombre: 'Lavadora', tipo: 'cuotas', mensual: 177.66, fin: '2026-12-21' },
+    { nombre: 'Cocina', tipo: 'cuotas', mensual: 61.5, fin: '2027-01-23' },
+    { nombre: 'Extra OLE', tipo: 'cuotas', mensual: 56.87, fin: '2027-01-09' },
+    { nombre: 'Netflix', tipo: 'suscripcion', mensual: 9.99, fin: null },
+  ], '2026-11-15');
+  assert.equal(t.mensualHoy, 306.02);
+  assert.deepEqual(t.hitos.map(h => [h.mes, h.libera, h.quedaAlMes]), [['2027-01', 177.66, 128.36], ['2027-02', 118.37, 9.99]]);
+});

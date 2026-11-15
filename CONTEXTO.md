@@ -40,6 +40,17 @@ Reglas que vienen de los otros proyectos del usuario (Daily-log, STC-innova, Net
   registrar), "Lo que viene" (resto de pagos y tarjetas que cortan hoy o mañana), "Tu deuda" y "Tu mes".
 - Prioridad acordada con el usuario: 1) qué pagar y cuándo, 2) cuánto debo, 3) en qué se va el dinero.
 
+## Tu dinero disponible y tus hábitos
+- Cuentas y efectivo tienen saldo (`saldoInicial` + `fechaSaldo`, domain/cuentas.js). Se ajusta editando la cuenta.
+- Salario: pago fijo de ingreso con `variable: true` (se anota el estimado y queda por confirmar).
+- "Puedes gastar hasta el {día de salario}" (Inicio, opción 2 elegida el 15 nov 2026): lo que tienes − pagos antes del
+  salario − reserva (lo que el salario no alcance a cubrir del período siguiente: compras del ciclo, cuotas, préstamo,
+  pagos fijos a cuentas). Lo que vence el mismo día del salario va al período siguiente.
+- Hábitos (domain/habitos.js, pantallas en Más): gastos hormiga (compras de menos de `ajustes.umbralHormiga`, $10 por
+  defecto), suscripciones (mismo comercio una vez al mes con montos casi iguales, o servicio conocido; nunca súper,
+  comida, gasolina…; marcas del usuario en `ajustes.suscripciones`) y "Cuándo termino de pagar" (línea de tiempo de
+  cuotas, préstamo, pagos fijos y suscripciones, con lo que se libera cada mes).
+
 ## Estructura
 
 ```
