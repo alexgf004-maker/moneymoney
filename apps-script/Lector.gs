@@ -204,7 +204,8 @@ function lectorServicio(texto) {
 
 // En los estados de cuenta a veces hay montos en moneda local y en dólares: se prefiere el de dólares
 function montoDeEstado(texto, etiqueta) {
-  var re = new RegExp(etiqueta + '([^\\n:|$\\d]{0,25})' + SEP + '(?:US\\s?\\$|\\$)?\\s?([\\d.,]*\\d)', 'gi');
+  // El resto de la etiqueta ("dólares", "moneda local") puede venir en la línea siguiente (BAC)
+  var re = new RegExp(etiqueta + '([^:|$\\d]{0,25})' + SEP + '(?:US\\s?\\$|\\$)?\\s?([\\d.,]*\\d)', 'gi');
   var m, opciones = [];
   while ((m = re.exec(texto))) opciones.push({ label: m[1].toLowerCase(), valor: leerNumero(m[2]) });
   if (!opciones.length) return null;

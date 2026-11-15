@@ -275,3 +275,18 @@ test('publicidad sin montos ni tarjeta no queda "por revisar"; Transfer365 de tu
   const salida = analizarCorreo({ de: 'notificaciones@bancoagricola.com', asunto: 'Transfer365 - Notificación de transferencia', cuerpo: 'Banco Agrícola. Transfer365. Has realizado una transferencia. Monto: $129.11. Banco destino: Banco Cuscatlán', fecha: '2026-11-15' });
   assert.equal(salida.resultado, 'transferencia');
 });
+
+test('BAC: estado de cuenta tal como lo lee Gmail ("dólares" en la línea siguiente)', () => {
+  const r = leerCorreo({
+    de: 'BAC Credomatic <estadosdecuenta@baccredomatic.com>',
+    asunto: 'Estado de Cuenta Digital BAC Credomatic',
+    cuerpo: `|\nTarjeta de Crédito\n|\nEstimado/a cliente, JUAN PEREZ\nPor este medio te enviamos el estado de cuenta de tu tarjeta.\n|\nTipo de cuenta\n4568-46XX-XXXX-8888\n|\n|\nFecha de corte\n09-11-2026\n|\nFecha de vencimiento\n30-11-2026\n|\n|\nPago mínimo\ndólares\n|\n$ 59.00\n|\n|\nPago de contado\ndólares\n|\n$ 101.35\n|\n-->\n|\nAntes de imprimir este correo verifique si es necesario hacerlo.`,
+    fecha: '2026-11-10',
+  });
+  assert.equal(r.tipo, 'estado');
+  assert.equal(r.ultimos4, '8888');
+  assert.equal(r.fechaCorte, '2026-11-09');
+  assert.equal(r.fechaPago, '2026-11-30');
+  assert.equal(r.minimo, 59);
+  assert.equal(r.contado, 101.35);
+});
