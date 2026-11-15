@@ -1,6 +1,6 @@
 // Red primero (así nunca se queda una versión vieja) y lo guardado solo sin señal.
 // Firebase y otros sitios van directo a la red. También muestra las notificaciones que manda el script de Gmail.
-const CACHE = 'moneymoney-v10';
+const CACHE = 'moneymoney-v11';
 
 self.addEventListener('install', e => {
   self.skipWaiting();
@@ -14,7 +14,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
-  e.respondWith(fetch(req).then(res => {
+  // cache: 'no-cache' pregunta siempre al servidor si hay versión nueva (GitHub Pages pide guardar 10 minutos)
+  e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
     if (res.ok) { const copia = res.clone(); caches.open(CACHE).then(c => c.put(req, copia)); }
     return res;
   }).catch(() => caches.match(req).then(r => r || (req.mode === 'navigate' ? caches.match('index.html') : Response.error()))));
