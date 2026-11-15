@@ -135,6 +135,8 @@ export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
   const planes = estadoPlanes(tarjeta, hoy);
   const enCuotas = sumar(planes.map(p => p.pendiente));
   const deudaTotal = r2(saldoActual + enCuotas);
+  // Algunos extrafinanciamientos son un crédito aparte y no ocupan el límite (p. ej. en BAC)
+  const usado = r2(saldoActual + sumar(planes.filter(p => !p.fueraDelLimite).map(p => p.pendiente)));
   return {
     saldoActual,
     planes,
@@ -142,8 +144,8 @@ export function estadoTarjeta(tarjeta, movs, hoy, estados = []) {
     cuotasMes: sumar(planes.filter(p => p.activo).map(p => p.cuota)),
     deudaTotal,
     // Lo que falta en cuotas también ocupa el límite (el banco lo descuenta del disponible)
-    disponible: r2((tarjeta.limite || 0) - deudaTotal),
-    uso: tarjeta.limite ? deudaTotal / tarjeta.limite : 0,
+    disponible: r2((tarjeta.limite || 0) - usado),
+    uso: tarjeta.limite ? usado / tarjeta.limite : 0,
     ultimoCorte: corte,
     proximoCorte: real ? sumarMeses(real.fechaCorte, 1, tarjeta.diaCorte) : proximoCorte(tarjeta, hoy),
     fuente: real ? 'banco' : 'calculado',

@@ -78,6 +78,8 @@ function plan({ id, pre }) {
       ${campo('Total de cuotas', entrada('total', p?.total ?? '', { tipo: 'number', min: 1, req: true, ph: 'Ej. 12' }))}
     </div>
     ${campo('¿Cuántas cuotas ya te cobraron?', entrada('cobradas', e ? e.cobradasHoy : '', { tipo: 'number', min: 0, req: true, ph: 'Ej. 11' }), 'Contando la de tu último estado de cuenta. Si vas por la 11 de 12, pon 11.')}
+    <div class="solo-extra">${marca('fueraDelLimite', 'No ocupa el límite de la tarjeta (es un crédito aparte)', p ? !!p.fueraDelLimite : true)}
+      <small class="mu" style="margin:-8px 0 10px">Para saberlo: si límite = saldo + disponible + lo que falta de las compras a tasa cero, sin contar este extrafinanciamiento, márcala.</small></div>
     <div class="solo-extra">${campo('Tasa de interés anual % (opcional)', entrada('tasaAnual', p?.tasaAnual ?? '', { tipo: 'number', paso: '0.01', min: 0 }), 'Solo informativa: la cuota ya incluye el interés')}</div>
     ${p ? '' : `${marca('incluido', 'El saldo que puse en esta tarjeta ya incluye lo que falta de esta compra')}
       <small class="mu">Casi siempre NO: los bancos muestran el saldo y las cuotas por separado. Si al configurar la tarjeta calculaste el límite como saldo + disponible, súbele lo que falta de esta compra.</small>`}

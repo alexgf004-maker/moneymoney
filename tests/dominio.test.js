@@ -248,3 +248,17 @@ test('una compra marcada en cuotas no se suma completa a la tarjeta', () => {
   assert.equal(e.enCuotas, 600);
   assert.equal(totalGastado([compra], '2026-11'), 600); // el gasto cuenta completo el mes de la compra
 });
+
+test('un extrafinanciamiento fuera del límite no baja el disponible', () => {
+  const t = {
+    ...tarjeta, limite: 500, diaCorte: 9, diaPago: 30, saldoInicial: 100, fechaSaldo: '2026-11-14',
+    planes: {
+      ex: { id: 'ex', nombre: 'Extra', tipo: 'extra', cuota: 50, total: 12, cobradas: 10, corteRef: '2026-11-09', fueraDelLimite: true },
+      tv: { id: 'tv', nombre: 'TV', tipo: 'tasa0', cuota: 5, total: 36, cobradas: 13, corteRef: '2026-11-09' },
+    },
+  };
+  const e = estadoTarjeta(t, [], '2026-11-15');
+  assert.equal(e.enCuotas, 215); // 2 x 50 + 23 x 5
+  assert.equal(e.deudaTotal, 315);
+  assert.equal(e.disponible, 285); // 500 - 100 - 115 (el extrafinanciamiento no cuenta)
+});
