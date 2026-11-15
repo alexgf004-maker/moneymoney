@@ -193,7 +193,9 @@ test('compras en cuotas: extrafinanciamiento y compra nueva a tasa cero', async 
   await f.locator('[name=cuota]').fill('50');
   await f.locator('[name=total]').fill('12');
   await f.locator('[name=cobradas]').fill('11');
+  await f.locator('label', { hasText: 'A mitad' }).click();
   await f.getByRole('button', { name: 'Guardar' }).click();
+  await expect(visa).toContainText('tu parte $25.00');
   await expect(visa).toContainText('+ $50.00 en cuotas');
   await expect(visa).toContainText('cuota 11 de 12');
   expect(await visa.locator('.cifra').innerText()).not.toBe(antes);

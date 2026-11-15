@@ -89,7 +89,7 @@ function tarjetasHTML(d, hoy) {
 function planesHTML(t, e) {
   const activos = e.planes.filter(p => p.activo);
   const fila = p => `<button class="row" data-accion="modal" data-tipo="plan" data-id="${esc(p.id)}" data-pre="${t.id}" style="padding:10px 0">
-      <span class="rt"><b>${esc(p.nombre)}</b><small>${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · cuota ${p.cobradasHoy} de ${p.total}${p.activo ? ` · termina en ${nombreMes(p.fin.slice(0, 7))}` : ' · terminado'}</small></span>
+      <span class="rt"><b>${esc(p.nombre)}</b><small>${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · cuota ${p.cobradasHoy} de ${p.total}${p.activo ? ` · termina en ${nombreMes(p.fin.slice(0, 7))}` : ' · terminado'}${p.entre > 1 ? ` · tu parte ${dinero(p.cuota / p.entre)}` : ''}</small></span>
       <span class="amt">${dinero(p.cuota)}<small>al mes</small></span>
     </button>`;
   return `<div class="caja">

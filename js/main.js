@@ -309,7 +309,7 @@ const FORMULARIOS = {
     if (cobradas < 0 || cobradas > total) return 'Las cuotas cobradas deben estar entre 0 y el total';
     const id = form.dataset.id || store.nuevoId('q');
     // Se cuenta desde el último corte: las cuotas cobradas incluyen la de ese estado de cuenta
-    const plan = { id, nombre: f.nombre.trim(), tipo: f.tipo || 'tasa0', cuota, total, cobradas, corteRef: estadoDe(t).ultimoCorte, tasaAnual: num(f.tasaAnual), fueraDelLimite: f.tipo === 'extra' && !!f.fueraDelLimite };
+    const plan = { id, nombre: f.nombre.trim(), tipo: f.tipo || 'tasa0', cuota, total, cobradas, corteRef: estadoDe(t).ultimoCorte, tasaAnual: num(f.tasaAnual), fueraDelLimite: f.tipo === 'extra' && !!f.fueraDelLimite, entre: entero(f.entre) > 1 ? entero(f.entre) : null };
     const cambios = { planes: { ...(t.planes || {}), [id]: plan } };
     store.guardar('tarjetas', { ...t, ...cambios });
   },

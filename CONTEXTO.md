@@ -157,3 +157,5 @@ día de margen) se descartan al llegar (`esDuplicado`).
   Se guarda en ajustes.suscripciones[clave] = { entre, miParte }. Suscripciones, Inicio y "Cuándo termino de pagar"
   cuentan solo tu parte; la deuda de la tarjeta sigue con el cobro completo.
 - Las claves de comercio no llevan puntos (Firebase no acepta . # $ [ ] / en nombres de campo).
+- Compras en cuotas compartidas: plan.entre (2 = a mitad). "Estás por terminar" y "Cuándo termino de pagar" cuentan
+  cuota / entre; la tarjeta, su pago y "Puedes gastar" siguen con la cuota completa (es lo que cobra el banco).

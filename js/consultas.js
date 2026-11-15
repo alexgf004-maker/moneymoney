@@ -3,7 +3,7 @@
 import { lista, obtener, ajustes } from './store.js';
 import { estadoTarjeta } from './domain/tarjetas.js';
 import { estadoPrestamo } from './domain/prestamo.js';
-import { r2, sumar } from './domain/dinero.js';
+import { r2, sumar, dinero } from './domain/dinero.js';
 import { hoyISO } from './domain/fechas.js';
 import { cuantoPuedoGastar } from './domain/cuentas.js';
 import { gastosHormiga, suscripciones, lineaDeTiempo, porTerminar } from './domain/habitos.js';
@@ -130,7 +130,10 @@ export function compromisos(hoy = hoyISO()) {
   const items = [];
   for (const t of tarjetas()) {
     for (const p of estadoTarjeta(t, movs(), hoy, estadosDe(t)).planes.filter(x => x.activo)) {
-      items.push({ nombre: p.nombre, detalle: `${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · ${t.nombre} · cuota ${p.cobradasHoy} de ${p.total}`, tipo: 'cuotas', mensual: p.cuota, fin: p.fin, hechas: p.cobradasHoy, total: p.total, donde: t.nombre });
+      // Compra compartida (la lavadora a mitad con alguien): cuenta solo tu parte
+      const entre = p.entre > 1 ? p.entre : 1;
+      const mia = r2(p.cuota / entre);
+      items.push({ nombre: p.nombre, detalle: `${p.tipo === 'extra' ? 'Extrafinanciamiento' : 'Tasa cero'} · ${t.nombre} · cuota ${p.cobradasHoy} de ${p.total}${entre > 1 ? ` · tu parte de ${dinero(p.cuota)}` : ''}`, tipo: 'cuotas', mensual: mia, fin: p.fin, hechas: p.cobradasHoy, total: p.total, donde: entre > 1 ? `${t.nombre} · ${entre === 2 ? 'a mitad' : `entre ${entre}`}` : t.nombre });
     }
   }
   for (const p of prestamos()) {

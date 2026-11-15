@@ -78,6 +78,7 @@ function plan({ id, pre }) {
       ${campo('Cuota mensual', entrada('cuota', p ? p.cuota.toFixed(2) : '', { tipo: 'number', paso: '0.01', min: 0, req: true, ph: '0.00' }))}
       ${campo('Total de cuotas', entrada('total', p?.total ?? '', { tipo: 'number', min: 1, req: true, ph: 'Ej. 12' }))}
     </div>
+    ${campo('¿La pagas con alguien?', opciones('entre', [['1', 'Solo yo'], ['2', 'A mitad'], ['3', 'Entre 3'], ['4', 'Entre 4']], String(p?.entre || 1)), 'Si la pagas con alguien, en tus pagos del mes y en "Estás por terminar" cuenta solo tu parte. La tarjeta sigue con la cuota completa.')}
     ${campo('¿Cuántas cuotas ya te cobraron?', entrada('cobradas', e ? e.cobradasHoy : '', { tipo: 'number', min: 0, req: true, ph: 'Ej. 11' }), 'Contando la de tu último estado de cuenta. Si vas por la 11 de 12, pon 11.')}
     <div class="solo-extra">${marca('fueraDelLimite', 'No ocupa el límite de la tarjeta (es un crédito aparte)', p ? !!p.fueraDelLimite : true)}
       <small class="mu" style="margin:-8px 0 10px">Para saberlo: si límite = saldo + disponible + lo que falta de las compras a tasa cero, sin contar este extrafinanciamiento, márcala.</small></div>
