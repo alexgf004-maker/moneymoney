@@ -328,3 +328,22 @@ test('varios pagos urgentes: el más cercano con cuenta regresiva y los demás d
   await expect(pc).toContainText('$290.00');
   expect(errores).toEqual([]);
 });
+
+test('movimientos: los gastos siempre salen con signo menos, aunque haya varios el mismo día', async ({ page }) => {
+  const errores = await conEjemplo(page);
+  // Dos gastos el mismo día (hoy): el segundo de la lista salía con "+"
+  for (const [monto, comercio] of [['12.50', 'Pupusería'], ['30.60', 'Super Selectos']]) {
+    await page.locator('.fab').click();
+    const m = page.locator('form[data-form=movimiento]');
+    await m.locator('[name=monto]').fill(monto);
+    await m.locator('[name=comercio]').fill(comercio);
+    await m.getByRole('button', { name: 'Guardar' }).click();
+  }
+  await nav(page, 'Movimientos');
+  await expect(page.locator('#vista')).toContainText('Super Selectos');
+  // Ningún gasto (categoría que no es ingreso) puede salir con "+"
+  const signos = await page.locator('#vista .row').evaluateAll(filas => filas.map(f => [f.querySelector('small')?.textContent || '', f.querySelector('.amt')?.textContent || '']));
+  const malos = signos.filter(([detalle, monto]) => monto.trim().startsWith('+') && !/Salario|Ingreso|Extra|Devoluci/i.test(detalle));
+  expect(malos).toEqual([]);
+  expect(errores).toEqual([]);
+});

@@ -57,7 +57,7 @@ export function vistaMovimientos() {
 
     ${lista.length ? [...porDia].map(([fecha, items]) => `
       <div class="dia">${tituloDia(fecha)}</div>
-      <div class="card">${items.map(filaMovimiento).join('')}</div>`).join('')
+      <div class="card">${items.map(m => filaMovimiento(m)).join('')}</div>`).join('')
       : `<div class="card" style="margin-top:16px">${vacio('movimientos', ui.filtro === 'revisar' ? 'Todo revisado' : 'Sin movimientos', ui.filtro === 'revisar' ? 'No hay nada pendiente de confirmar.' : 'Toca el botón + para anotar uno.')}</div>`}
   `;
 }
