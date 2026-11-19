@@ -76,6 +76,17 @@ export async function activarNotificaciones(vapidKey) {
   if (!notificacionesPosibles()) throw new Error('Este navegador no permite notificaciones');
   const permiso = await Notification.requestPermission();
   if (permiso !== 'granted') throw new Error('No diste permiso para las notificaciones. Actívalo en los ajustes del teléfono.');
+  return registrarTelefono(vapidKey);
+}
+
+// Vuelve a guardar el registro de este teléfono sin preguntar nada (si ya dio permiso). Se hace cada vez que se
+// abre la app: si el registro cambió con una actualización, el script deja de tener el viejo y no llegaría nada.
+export async function renovarAvisos(vapidKey) {
+  if (!fb?.uid || !notificacionesPosibles() || Notification.permission !== 'granted') return null;
+  return registrarTelefono(vapidKey);
+}
+
+async function registrarTelefono(vapidKey) {
   const registro = await navigator.serviceWorker.register('sw.js');
   await navigator.serviceWorker.ready;
   const msgMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-messaging.js`);
@@ -89,8 +100,3 @@ export async function activarNotificaciones(vapidKey) {
   return id;
 }
 
-// Aviso local para comprobar que el teléfono muestra las notificaciones de la app
-export async function avisoDePrueba() {
-  const registro = await navigator.serviceWorker.ready;
-  await registro.showNotification('MoneyMoney', { body: 'Así te llegarán los avisos de pago. Este se queda en pantalla hasta que lo toques.', icon: 'icons/icon-192.png', badge: 'icons/badge-96.png', tag: 'prueba', renotify: true, requireInteraction: true, vibrate: [400, 150, 400, 150, 400, 150, 800], actions: [{ action: 'pagos', title: 'Ver pagos' }, { action: 'luego', title: 'Recordar luego' }], image: 'icons/aviso-pago.jpg', data: { tipo: 'pagos', url: './' } });
-}

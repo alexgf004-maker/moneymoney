@@ -65,6 +65,15 @@ export function avisosActivos() {
   try { return typeof Notification !== 'undefined' && Notification.permission === 'granted' && !!localStorage.getItem('moneymoney:notif'); } catch { return false; }
 }
 
+// Resultado del último aviso de prueba que mandó el script (ajustes.prueba = { pedida, enviada, telefonos })
+function resultadoPrueba(p) {
+  if (!p?.pedida) return '';
+  const hora = iso => new Date(iso).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
+  if (!p.enviada) return `<small class="mu" style="margin-top:10px">${ic('reloj')} Prueba pedida a las ${hora(p.pedida)}. El script la manda en máximo 5 minutos.</small>`;
+  if (!p.telefonos) return `<small class="bad" style="margin-top:10px;white-space:normal">${ic('alerta')} El script no encontró ningún teléfono registrado. Toca "Volver a registrar" y prueba otra vez.</small>`;
+  return `<small class="mu" style="margin-top:10px;white-space:normal">${ic('check')} El script mandó la prueba a las ${hora(p.enviada)} a ${p.telefonos} teléfono${p.telefonos > 1 ? 's' : ''}. Si no te llegó, el teléfono la está bloqueando: revisa en los ajustes de Android que Chrome tenga las notificaciones permitidas y que no esté en "apps en suspensión".</small>`;
+}
+
 function notificaciones() {
   const n = { pagos: true, compras: true, correo: true, ...(ajustes().notif || {}) };
   const activos = avisosActivos();
@@ -79,7 +88,8 @@ function notificaciones() {
     estado = `<div class="row" style="border:0">${tile('alerta', 'bad')}<span class="rt"><b style="white-space:normal">Este navegador no permite notificaciones</b><small style="white-space:normal">Instala la app desde Chrome (menú, Agregar a pantalla principal) y ábrela desde el ícono.</small></span></div>`;
   } else if (activos) {
     estado = `<div class="row" style="border:0">${tile('check', 'ok')}<span class="rt"><b>Activados en este teléfono</b><small>Te llegan aunque no abras la app</small></span></div>
-      <div class="tc-acc"><button class="btn sm sec" data-accion="probar-notif">${ic('alerta')} Probar</button><button class="btn sm sec" data-accion="activar-notif">${ic('repetir')} Volver a registrar</button></div>`;
+      <div class="tc-acc"><button class="btn sm sec" data-accion="probar-notif">${ic('alerta')} Probar</button><button class="btn sm sec" data-accion="activar-notif">${ic('repetir')} Volver a registrar</button></div>
+      ${resultadoPrueba(ajustes().prueba)}`;
   } else {
     estado = `<div class="row" style="border:0">${tile('alerta', 'oro')}<span class="rt"><b style="white-space:normal">Activa los avisos en este teléfono</b><small style="white-space:normal">Te pedirá permiso para mostrar notificaciones.</small></span></div>
       <button class="btn ancho" data-accion="activar-notif">${ic('alerta')} Activar avisos</button>`;

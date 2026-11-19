@@ -172,3 +172,9 @@ día de margen) se descartan al llegar (`esDuplicado`).
 - `js/domain/permitir.js` reusa cuantoPuedoGastar con la compra agregada (mismos números que el Inicio): cuánto te
   queda hasta el salario, cuánto te sobra del salario siguiente, intereses si pagas el mínimo y si las cuotas retrasan
   el mes desde el que pagas menos.
+
+## Avisos: registro y prueba
+- Al abrir la app (con sesión y avisos ya activados) se renueva en silencio el registro del teléfono
+  (renovarAvisos): si cambió con una actualización, el script tenía uno viejo y no llegaba nada.
+- "Probar" ya no es un aviso local: la app escribe ajustes.prueba.pedida y el script (procesarCorreos, cada 5 min)
+  manda un aviso real y anota a cuántos teléfonos salió; la app muestra el resultado.

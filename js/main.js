@@ -6,7 +6,7 @@ import { montar, render, renderVista, renderModal } from './views/render.js';
 import { moverMes } from './views/movimientos.js';
 import { resultadosPermitir } from './views/mas.js';
 import { FIREBASE, VAPID } from './config.js';
-import { iniciarFirebase, entrarConGoogle, salir, activarNotificaciones, avisoDePrueba } from './firebase.js';
+import { iniciarFirebase, entrarConGoogle, salir, activarNotificaciones, renovarAvisos } from './firebase.js';
 import { procesarEntrante, procesarEstado, esDuplicado } from './domain/entrantes.js';
 import { recurrentesPendientes, proximosPagos } from './domain/resumen.js';
 import { normalizar } from './domain/categorias.js';
@@ -124,7 +124,12 @@ const ACCIONES = {
       aviso(e.message || 'No se pudieron activar los avisos', 'error');
     }
   },
-  'probar-notif': () => avisoDePrueba().catch(() => aviso('Primero activa los avisos', 'error')),
+  // Prueba de verdad: la pide la app y la manda el script de Gmail (como los avisos reales), en máximo 5 minutos
+  'probar-notif': () => {
+    store.guardarAjustes({ prueba: { pedida: new Date().toISOString() } });
+    renderVista();
+    aviso('Pedido. Te llega en máximo 5 minutos, desde tu Gmail');
+  },
   'notif-pref': d => {
     const actual = { pagos: true, compras: true, correo: true, ...(store.ajustes().notif || {}) };
     store.guardarAjustes({ notif: { ...actual, [d.clave]: !actual[d.clave] } });
@@ -508,6 +513,14 @@ if (FIREBASE && !window.__SIN_NUBE__) {
       store.conectarRemoto(escritor);
       renderVista();
       programarAgenda();
+      // Si este teléfono ya tenía los avisos activados, se renueva su registro en silencio
+      let activado = false;
+      try { activado = !!localStorage.getItem('moneymoney:notif'); } catch { /* sin almacenamiento */ }
+      if (usuario && activado) {
+        renovarAvisos(VAPID)
+          .then(id => { if (id) try { localStorage.setItem('moneymoney:notif', id); } catch { /* sin almacenamiento */ } })
+          .catch(e => console.error('No se pudo renovar el registro de avisos', e));
+      }
     },
     alDatos(valor, primera) {
       // Primera vez en la nube con datos ya en el teléfono: se suben en vez de borrarlos

@@ -85,10 +85,24 @@ function fechaISO_(d) {
 
 // dias: cuántos días atrás buscar. forzar: volver a revisar también los correos ya procesados (para llenar el
 // registro de "Correos revisados"); la app no duplica movimientos porque cada correo tiene su propio id.
+// Aviso de prueba pedido desde la app (Más > Avisos > Probar): se manda igual que los avisos reales y se anota a
+// cuántos teléfonos salió, para que la app diga si el problema está en el registro o en el teléfono
+function probarSiPidieron_(cfg) {
+  try {
+    var p = leer_(cfg, 'ajustes/general/prueba');
+    if (!p || !p.pedida || p.enviada) return;
+    var ok = enviarPush_(cfg, 'Prueba de MoneyMoney', 'Así te llegan los avisos de compras y pagos.', 'prueba', 'pagos', 'aviso-pago.jpg');
+    enviar_(cfg, 'ajustes/general/prueba', { pedida: p.pedida, enviada: new Date().toISOString(), telefonos: ok });
+  } catch (e) {
+    Logger.log('Aviso de prueba no enviado: ' + e.message);
+  }
+}
+
 function procesarCorreos(dias, forzar) {
   dias = typeof dias === 'number' ? dias : DIAS_ATRAS;
   var inicio = Date.now();
   var cfg = config_();
+  probarSiPidieron_(cfg);
   var hechos = procesados_();
   var props = PropertiesService.getScriptProperties();
   var revisados = forzar ? JSON.parse(props.getProperty('REVISADOS') || '{}') : {};
